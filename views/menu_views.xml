@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Menu principal -->
+        <menuitem id="menu_replen_root"
+                  name="Réapprovisionnement"
+                  sequence="50"/>
+
+        <!-- Sous-menu pour les plans -->
+        <menuitem id="menu_replen_plan"
+                  name="Plans"
+                  parent="menu_replen_root"
+                  action="action_replen_plan"
+                  sequence="10"/>
+    </data>
+</odoo> 

@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Form View -->
+        <record id="replen_plan_view_form" model="ir.ui.view">
+            <field name="name">replen.plan.form</field>
+            <field name="model">replen.plan</field>
+            <field name="arch" type="xml">
+                <form string="Plan de réapprovisionnement">
+                    <header>
+                        <button name="action_to_forecast" 
+                                string="Saisir les prévisions" 
+                                type="object" 
+                                class="oe_highlight"
+                                states="draft"/>
+                        <field name="state" widget="statusbar" 
+                               statusbar_visible="draft,forecast,plan,done"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name" readonly="1"/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="period_type" attrs="{'readonly': [('state', '!=', 'draft')]}"/>
+                                <field name="show_sub_period" invisible="1"/>
+                                <field name="show_products" invisible="1"/>
+                                <field name="sub_period" invisible="1"/>
+                                <field name="sub_period_monthly" 
+                                       attrs="{'invisible': [('period_type', '!=', 'monthly')],
+                                              'required': [('period_type', '=', 'monthly')],
+                                              'readonly': [('state', '!=', 'draft')]}"/>
+                                <field name="sub_period_quarterly" 
+                                       attrs="{'invisible': [('period_type', '!=', 'quarterly')],
+                                              'required': [('period_type', '=', 'quarterly')],
+                                              'readonly': [('state', '!=', 'draft')]}"/>
+                                <field name="sub_period_biannual" 
+                                       attrs="{'invisible': [('period_type', '!=', 'biannual')],
+                                              'required': [('period_type', '=', 'biannual')],
+                                              'readonly': [('state', '!=', 'draft')]}"/>
+                                <field name="sub_period_annual" 
+                                       attrs="{'invisible': [('period_type', '!=', 'annual')],
+                                              'required': [('period_type', '=', 'annual')],
+                                              'readonly': [('state', '!=', 'draft')]}"/>
+                            </group>
+                            <group>
+                                <field name="date_start"/>
+                                <field name="date_end"/>
+                            </group>
+                        </group>
+                        <notebook attrs="{'invisible': [('show_products', '=', False)]}">
+                            <page string="Produits" name="products">
+                                <field name="product_ids" 
+                                       domain="[('bom_ids', '!=', False), ('sale_ok', '=', True), ('type', '=', 'product')]"
+                                       options="{'no_create': True}"
+                                       attrs="{'readonly': [('state', '!=', 'draft')]}">
+                                    <tree string="Produits" delete="1">
+                                        <field name="default_code"/>
+                                        <field name="name"/>
+                                    </tree>
+                                </field>
+                                <group class="oe_subtotal_footer">
+                                    <field name="product_count" string="Nombre de produits"/>
+                                </group>
+                            </page>
+                            <page string="Prévisions" name="forecasts" attrs="{'invisible': [('state', '=', 'draft')]}">
+                                <group>
+                                    <field name="line_ids" nolabel="1" readonly="1">
+                                        <tree>
+                                            <field name="product_id"/>
+                                            <field name="date"/>
+                                            <field name="historic_qty"/>
+                                            <field name="forecast_qty"/>
+                                        </tree>
+                                    </field>
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Tree View -->
+        <record id="replen_plan_view_tree" model="ir.ui.view">
+            <field name="name">replen.plan.tree</field>
+            <field name="model">replen.plan</field>
+            <field name="arch" type="xml">
+                <tree string="Plans de réapprovisionnement" decoration-info="state == 'draft'" decoration-warning="state == 'forecast'" decoration-danger="state == 'plan'" decoration-success="state == 'done'">
+                    <field name="name"/>
+                    <field name="period_type"/>
+                    <field name="sub_period"/>
+                    <field name="date_start"/>
+                    <field name="date_end"/>
+                    <field name="state"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- Search View -->
+        <record id="replen_plan_view_search" model="ir.ui.view">
+            <field name="name">replen.plan.search</field>
+            <field name="model">replen.plan</field>
+            <field name="arch" type="xml">
+                <search string="Plans de réapprovisionnement">
+                    <field name="name"/>
+                    <field name="period_type"/>
+                    <separator/>
+                    <filter string="Brouillon" name="draft" domain="[('state','=','draft')]"/>
+                    <filter string="En prévision" name="forecast" domain="[('state','=','forecast')]"/>
+                    <filter string="En planification" name="plan" domain="[('state','=','plan')]"/>
+                    <filter string="Validé" name="done" domain="[('state','=','done')]"/>
+                    <group expand="0" string="Group By">
+                        <filter string="Type de période" name="group_by_period_type" context="{'group_by':'period_type'}"/>
+                        <filter string="État" name="group_by_state" context="{'group_by':'state'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <!-- Vue Form pour la saisie des prévisions -->
+        <record id="replen_plan_forecast_form" model="ir.ui.view">
+            <field name="name">replen.plan.forecast.form</field>
+            <field name="model">replen.plan</field>
+            <field name="mode">primary</field>
+            <field name="priority">20</field>
+            <field name="arch" type="xml">
+                <form string="Saisie des prévisions">
+                    <header>
+                        <field name="state" widget="statusbar" 
+                               statusbar_visible="draft,forecast,plan,done"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name" readonly="1"/>
+                            </h1>
+                        </div>
+                        <h2 class="text-center">
+                            Saisie des prévisions pour <field name="sub_period" readonly="1" class="oe_inline"/>
+                        </h2>
+                        <group>
+                            <group>
+                                <field name="date_start" readonly="1"/>
+                                <field name="period_type" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="date_end" readonly="1"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Prévisions" name="forecasts">
+                                <field name="line_ids">
+                                    <tree editable="bottom" create="0" delete="0">
+                                        <field name="product_id" readonly="1"/>
+                                        <field name="date" readonly="1"/>
+                                        <field name="historic_qty" readonly="1"/>
+                                        <field name="forecast_qty"/>
+                                    </tree>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Action -->
+        <record id="action_replen_plan" model="ir.actions.act_window">
+            <field name="name">Plans de réapprovisionnement</field>
+            <field name="res_model">replen.plan</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Créer votre premier plan de réapprovisionnement
+                </p>
+            </field>
+        </record>
+    </data>
+</odoo> 
