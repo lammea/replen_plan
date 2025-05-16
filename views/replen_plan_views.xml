@@ -129,13 +129,19 @@
             <field name="arch" type="xml">
                 <form string="Saisie des prévisions">
                     <header>
+                        <button name="action_back_to_draft" 
+                                string="Retour à la sélection" 
+                                type="object" 
+                                class="btn-secondary"
+                                states="forecast"/>
                         <button name="action_generate_plan" 
                                 string="Générer le plan" 
                                 type="object" 
                                 class="oe_highlight"
                                 states="forecast"/>
                         <field name="state" widget="statusbar" 
-                               statusbar_visible="draft,forecast,plan,done"/>
+                               statusbar_visible="draft,forecast,plan,done"
+                               clickable="True"/>
                     </header>
                     <sheet>
                         <div class="oe_title">
@@ -174,6 +180,60 @@
                                         <field name="current_stock"/>
                                         <field name="safety_stock"/>
                                         <field name="quantity_to_supply"/>
+                                    </tree>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Vue Form pour le plan de réapprovisionnement -->
+        <record id="replen_plan_supply_form" model="ir.ui.view">
+            <field name="name">replen.plan.supply.form</field>
+            <field name="model">replen.plan</field>
+            <field name="mode">primary</field>
+            <field name="priority">30</field>
+            <field name="arch" type="xml">
+                <form string="Plan de réapprovisionnement">
+                    <header>
+                        <button name="action_back_to_forecast" 
+                                string="Retour aux prévisions" 
+                                type="object" 
+                                class="btn-secondary"
+                                states="plan"/>
+                        <field name="state" widget="statusbar" 
+                               statusbar_visible="draft,forecast,plan,done"
+                               clickable="True"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name" readonly="1"/>
+                            </h1>
+                        </div>
+                        <h2 class="text-center">
+                            Plan de réapprovisionnement pour <field name="sub_period" readonly="1" class="oe_inline"/>
+                        </h2>
+                        <group>
+                            <group>
+                                <field name="date_start" readonly="1"/>
+                                <field name="period_type" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="date_end" readonly="1"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Composants à réapprovisionner" name="components">
+                                <field name="component_ids">
+                                    <tree editable="bottom">
+                                        <field name="product_id" readonly="1"/>
+                                        <field name="forecast_consumption" readonly="1"/>
+                                        <field name="current_stock" readonly="1"/>
+                                        <field name="safety_stock" readonly="1"/>
+                                        <field name="quantity_to_supply" decoration-danger="quantity_to_supply > 0"/>
                                     </tree>
                                 </field>
                             </page>

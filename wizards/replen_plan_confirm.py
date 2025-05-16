@@ -10,4 +10,4 @@ class ReplenPlanConfirmWizard(models.TransientModel):
         return self.plan_id._generate_plan()
 
     def action_cancel(self):
-        return {'type': 'ir.actions.act_window_close'} 
+        return {'type': 'ir.actions.act_window_close'}

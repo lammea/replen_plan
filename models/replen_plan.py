@@ -137,16 +137,26 @@ class ReplenPlan(models.Model):
 
     @api.onchange('period_type')
     def _onchange_period_type(self):
+        # Réinitialisation des sous-périodes
         self.sub_period_monthly = False
         self.sub_period_quarterly = False
         self.sub_period_biannual = False
         self.sub_period_annual = False
-        self.product_ids = [(5, 0, 0)]
+        
+        # Réinitialisation des produits avec tous les produits éligibles
+        domain = [
+            ('bom_ids', '!=', False),  # Produits avec nomenclature
+            ('sale_ok', '=', True),    # Produits pouvant être vendus
+            ('type', '=', 'product'),  # Produits stockables uniquement
+            ('active', '=', True)      # Produits actifs uniquement
+        ]
+        products = self.env['product.product'].search(domain)
+        self.product_ids = [(6, 0, products.ids)]
 
     @api.onchange('sub_period_monthly', 'sub_period_quarterly', 
                  'sub_period_biannual', 'sub_period_annual')
     def _onchange_sub_period(self):
-        # Récupérer les produits éligibles
+        # Réinitialisation des produits avec tous les produits éligibles
         if any([self.sub_period_monthly, self.sub_period_quarterly,
                 self.sub_period_biannual, self.sub_period_annual]):
             domain = [
@@ -157,9 +167,7 @@ class ReplenPlan(models.Model):
             ]
             products = self.env['product.product'].search(domain)
             self.product_ids = [(6, 0, products.ids)]
-        else:
-            self.product_ids = [(5, 0, 0)]
-
+        
         # Gestion du message de changement d'année
         if not self.period_type or not self.sub_period:
             return
@@ -436,4 +444,38 @@ class ReplenPlan(models.Model):
         # Passage à l'état 'plan'
         self.write({'state': 'plan'})
 
-        return True 
+        # Retourner une action pour ouvrir la vue du plan de réapprovisionnement
+        return {
+            'name': _('Plan de réapprovisionnement - {}').format(self.sub_period),
+            'type': 'ir.actions.act_window',
+            'res_model': 'replen.plan',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'view_id': self.env.ref('replen_plan.replen_plan_supply_form').id,
+            'target': 'current',
+        }
+
+    def action_back_to_draft(self):
+        self.ensure_one()
+        self.write({'state': 'draft'})
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'replen.plan',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'view_id': self.env.ref('replen_plan.replen_plan_view_form').id,
+            'target': 'current',
+            'context': {'keep_products': True}
+        }
+
+    def action_back_to_forecast(self):
+        self.ensure_one()
+        self.write({'state': 'forecast'})
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'replen.plan',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'view_id': self.env.ref('replen_plan.replen_plan_forecast_form').id,
+            'target': 'current',
+        }
