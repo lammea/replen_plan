@@ -23,6 +23,7 @@
         'data/ir_sequence_data.xml',
         'views/replen_plan_views.xml',
         'views/menu_views.xml',
+        'views/replen_plan_confirm_views.xml',
     ],
     'installable': True,
     'application': True,

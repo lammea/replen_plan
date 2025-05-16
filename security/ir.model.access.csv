@@ -3,3 +3,5 @@ access_replen_plan_user,replen.plan.user,model_replen_plan,stock.group_stock_use
 access_replen_plan_manager,replen.plan.manager,model_replen_plan,stock.group_stock_manager,1,1,1,1
 access_replen_plan_line_user,replen.plan.line.user,model_replen_plan_line,stock.group_stock_user,1,1,1,1
 access_replen_plan_line_manager,replen.plan.line.manager,model_replen_plan_line,stock.group_stock_manager,1,1,1,1
+access_replen_plan_component_user,replen.plan.component.user,model_replen_plan_component,stock.group_stock_user,1,1,1,1
+access_replen_plan_component_manager,replen.plan.component.manager,model_replen_plan_component,stock.group_stock_manager,1,1,1,1

@@ -1,5 +1,5 @@
 from odoo import models, fields, api, _
-from odoo.exceptions import ValidationError
+from odoo.exceptions import ValidationError, UserError
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 
@@ -12,6 +12,27 @@ class ReplenPlanLine(models.Model):
     date = fields.Date('Date', required=True)
     historic_qty = fields.Float('Historique des ventes', readonly=True)
     forecast_qty = fields.Float('Prévision')
+
+class ReplenPlanComponent(models.Model):
+    _name = 'replen.plan.component'
+    _description = 'Ligne de réapprovisionnement des composants'
+
+    plan_id = fields.Many2one('replen.plan', string='Plan', required=True, ondelete='cascade')
+    product_id = fields.Many2one('product.product', string='Composant', required=True)
+    forecast_consumption = fields.Float('Consommation prévisionnelle', digits='Product Unit of Measure')
+    current_stock = fields.Float('Stock actuel', digits='Product Unit of Measure')
+    safety_stock = fields.Float('Stock de sécurité', digits='Product Unit of Measure')
+    quantity_to_supply = fields.Float(
+        'Quantité à réapprovisionner',
+        compute='_compute_quantity_to_supply',
+        digits='Product Unit of Measure',
+        store=True
+    )
+
+    @api.depends('forecast_consumption', 'current_stock', 'safety_stock')
+    def _compute_quantity_to_supply(self):
+        for line in self:
+            line.quantity_to_supply = line.forecast_consumption - line.current_stock + line.safety_stock
 
 class ReplenPlan(models.Model):
     _name = 'replen.plan'
@@ -75,12 +96,14 @@ class ReplenPlan(models.Model):
         copy=True
     )
 
+    line_ids = fields.One2many('replen.plan.line', 'plan_id', string='Lignes de prévision')
+    component_ids = fields.One2many('replen.plan.component', 'plan_id', string='Composants')
+    has_empty_forecasts = fields.Boolean(compute='_compute_has_empty_forecasts')
+
     product_count = fields.Integer(
         string='Nombre de produits',
         compute='_compute_product_count'
     )
-
-    line_ids = fields.One2many('replen.plan.line', 'plan_id', string='Lignes de prévision')
 
     @api.depends('product_ids')
     def _compute_product_count(self):
@@ -245,7 +268,7 @@ class ReplenPlan(models.Model):
             
             plan.date_start = start_date
             plan.date_end = end_date
-        
+
     def _get_months_in_period(self):
         """Retourne la liste des mois de la période"""
         self.ensure_one()
@@ -258,6 +281,33 @@ class ReplenPlan(models.Model):
             months.append(current_date)
             current_date += relativedelta(months=1)
         return months
+
+    def _get_historic_sales(self, product_id, date):
+        """Calcule les ventes historiques pour un produit à une date donnée"""
+        self.ensure_one()
+        
+        # Calculer la même période l'année précédente
+        start_date = date.replace(year=date.year - 1)
+        end_date = (start_date + relativedelta(months=1, days=-1))
+        
+        # Rechercher les mouvements de stock sortants (livraisons)
+        domain = [
+            ('product_id', '=', product_id),
+            ('state', '=', 'done'),
+            ('date', '>=', start_date),
+            ('date', '<=', end_date),
+            ('location_dest_id.usage', '=', 'customer'),  # Livraisons aux clients
+        ]
+        
+        moves = self.env['stock.move'].search(domain)
+        total_qty = sum(moves.mapped('product_uom_qty'))
+        
+        return total_qty
+
+    @api.depends('line_ids.forecast_qty')
+    def _compute_has_empty_forecasts(self):
+        for plan in self:
+            plan.has_empty_forecasts = any(line.forecast_qty <= 0 for line in plan.line_ids)
 
     def action_to_forecast(self):
         self.ensure_one()
@@ -274,8 +324,8 @@ class ReplenPlan(models.Model):
         
         for product in self.product_ids:
             for month_date in months:
-                # TODO: Calculer l'historique des ventes
-                historic_qty = 0.0
+                # Calculer l'historique des ventes pour ce produit et ce mois
+                historic_qty = self._get_historic_sales(product.id, month_date)
                 
                 lines_to_create.append({
                     'plan_id': self.id,
@@ -305,4 +355,85 @@ class ReplenPlan(models.Model):
             'view_mode': 'form',
             'view_id': self.env.ref('replen_plan.replen_plan_forecast_form').id,
             'target': 'current',
-        } 
+        }
+
+    def action_generate_plan(self):
+        self.ensure_one()
+
+        # Vérification des prévisions vides
+        if self.has_empty_forecasts:
+            message = _("Attention : Certaines prévisions sont vides ou nulles. "
+                       "Voulez-vous continuer quand même ?")
+            return {
+                'type': 'ir.actions.act_window',
+                'name': _('Confirmation'),
+                'res_model': 'replen.plan.confirm.wizard',
+                'view_mode': 'form',
+                'target': 'new',
+                'context': {'default_plan_id': self.id}
+            }
+        else:
+            return self._generate_plan()
+
+    def _generate_plan(self):
+        self.ensure_one()
+
+        # Supprimer les anciennes lignes de composants
+        self.component_ids.unlink()
+
+        # Dictionnaire pour accumuler les besoins par composant
+        component_needs = {}
+
+        # Pour chaque produit fini et ses prévisions
+        for line in self.line_ids:
+            product = line.product_id
+            forecast_qty = line.forecast_qty
+
+            # Récupérer la nomenclature
+            bom = self.env['mrp.bom']._bom_find(product)[product]
+            if not bom:
+                continue
+
+            # Pour chaque composant dans la nomenclature
+            for bom_line in bom.bom_line_ids:
+                component = bom_line.product_id
+                qty_needed = bom_line.product_qty * forecast_qty
+
+                if component.id in component_needs:
+                    component_needs[component.id]['qty'] += qty_needed
+                else:
+                    # Récupérer le stock actuel
+                    current_stock = component.qty_available
+
+                    # Récupérer le stock de sécurité depuis les règles de stock
+                    orderpoint = self.env['stock.warehouse.orderpoint'].search([
+                        ('product_id', '=', component.id),
+                        ('location_id.usage', '=', 'internal')
+                    ], limit=1)
+                    safety_stock = orderpoint.product_min_qty if orderpoint else 0.0
+
+                    component_needs[component.id] = {
+                        'product': component,
+                        'qty': qty_needed,
+                        'current_stock': current_stock,
+                        'safety_stock': safety_stock
+                    }
+
+        # Créer les lignes de composants
+        component_lines = []
+        for comp_id, data in component_needs.items():
+            component_lines.append({
+                'plan_id': self.id,
+                'product_id': comp_id,
+                'forecast_consumption': data['qty'],
+                'current_stock': data['current_stock'],
+                'safety_stock': data['safety_stock'],
+            })
+
+        if component_lines:
+            self.env['replen.plan.component'].create(component_lines)
+
+        # Passage à l'état 'plan'
+        self.write({'state': 'plan'})
+
+        return True 

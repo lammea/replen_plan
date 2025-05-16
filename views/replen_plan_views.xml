@@ -129,6 +129,11 @@
             <field name="arch" type="xml">
                 <form string="Saisie des prévisions">
                     <header>
+                        <button name="action_generate_plan" 
+                                string="Générer le plan" 
+                                type="object" 
+                                class="oe_highlight"
+                                states="forecast"/>
                         <field name="state" widget="statusbar" 
                                statusbar_visible="draft,forecast,plan,done"/>
                     </header>
@@ -158,6 +163,17 @@
                                         <field name="date" readonly="1"/>
                                         <field name="historic_qty" readonly="1"/>
                                         <field name="forecast_qty"/>
+                                    </tree>
+                                </field>
+                            </page>
+                            <page string="Plan de réapprovisionnement" name="components" attrs="{'invisible': [('state', '!=', 'plan')]}">
+                                <field name="component_ids" readonly="1">
+                                    <tree>
+                                        <field name="product_id"/>
+                                        <field name="forecast_consumption"/>
+                                        <field name="current_stock"/>
+                                        <field name="safety_stock"/>
+                                        <field name="quantity_to_supply"/>
                                     </tree>
                                 </field>
                             </page>
