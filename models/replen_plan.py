@@ -86,9 +86,9 @@ class ReplenPlan(models.Model):
                       default=lambda self: _('Nouveau'))
     
     state = fields.Selection([
-        ('draft', 'Brouillon'),
-        ('forecast', 'Prévisions'),
-        ('plan', 'Plan de réapprovisionnement'),
+        ('draft', 'Paramétrage initial'),
+        ('forecast', 'Planification prévisionnelle'),
+        ('plan', 'Planification du réapprovisionnement'),
         ('report', 'Rapport de réapprovisionnement'),
         ('done', 'Validé')
     ], string='État', default='draft', required=True, tracking=True)
