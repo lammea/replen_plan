@@ -586,17 +586,66 @@ class ReplenPlan(models.Model):
             'target': 'current',
         }
 
-    def action_validate(self):
-        """Validation finale du plan de réapprovisionnement"""
+    def action_generate_rfq(self):
+        """Génération des demandes de prix et validation finale du plan"""
         self.ensure_one()
+        
         # Vérifier que tous les composants ont un fournisseur sélectionné
         if any(not comp.supplier_id for comp in self.component_ids):
             raise UserError(_("Veuillez sélectionner un fournisseur pour tous les composants."))
+
+        # Grouper les composants par fournisseur
+        supplier_products = {}
+        for component in self.component_ids:
+            if component.supplier_id not in supplier_products:
+                supplier_products[component.supplier_id] = []
+            supplier_products[component.supplier_id].append({
+                'product_id': component.product_id.id,
+                'quantity': component.quantity_to_supply,
+            })
+
+        # Créer une demande de prix pour chaque fournisseur
+        purchase_obj = self.env['purchase.order']
+        rfq_ids = []
+        for supplier, products in supplier_products.items():
+            # Créer l'entête de la demande de prix
+            po_vals = {
+                'partner_id': supplier.id,
+                'state': 'draft',
+                'origin': f'Réappro {self.name}',
+            }
+            purchase_order = purchase_obj.create(po_vals)
+            rfq_ids.append(purchase_order.id)
+
+            # Ajouter les lignes de produits
+            for product in products:
+                self.env['purchase.order.line'].create({
+                    'order_id': purchase_order.id,
+                    'product_id': product['product_id'],
+                    'product_qty': product['quantity'],
+                    'name': self.env['product.product'].browse(product['product_id']).name,
+                    'date_planned': fields.Date.today(),
+                    'product_uom': self.env['product.product'].browse(product['product_id']).uom_po_id.id,
+                })
+
+        # Passage à l'état validé
         self.write({'state': 'done'})
-        return {
+
+        # Afficher un message de succès
+        message = _('Les demandes de prix ont été générées avec succès.')
+        self.env['bus.bus']._sendone(self.env.user.partner_id, 'simple_notification', {
+            'title': _('Succès'),
+            'message': message,
+            'type': 'success',
+        })
+
+        # Retourner l'action pour afficher les demandes de prix générées
+        action = {
+            'name': _('Demandes de prix générées'),
             'type': 'ir.actions.act_window',
-            'res_model': 'replen.plan',
-            'res_id': self.id,
-            'view_mode': 'form',
+            'res_model': 'purchase.order',
+            'view_mode': 'tree,form',
+            'domain': [('id', 'in', rfq_ids)],
             'target': 'current',
         }
+        return action
