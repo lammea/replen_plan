@@ -11,6 +11,42 @@
                     Créer votre première planification du réapprovisionnement
                 </p>
             </field>
+            <field name="context">{
+                'form_view_initial_mode': 'edit',
+            }</field>
+        </record>
+
+        <!-- Actions spécifiques pour chaque état -->
+        <record id="action_replen_plan_forecast" model="ir.actions.act_window">
+            <field name="name">Saisie des prévisions</field>
+            <field name="res_model">replen.plan</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="replen_plan.replen_plan_forecast_form"/>
+            <field name="target">current</field>
+        </record>
+
+        <record id="action_replen_plan_supply" model="ir.actions.act_window">
+            <field name="name">Plan de réapprovisionnement</field>
+            <field name="res_model">replen.plan</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="replen_plan.replen_plan_supply_form"/>
+            <field name="target">current</field>
+        </record>
+
+        <record id="action_replen_plan_report" model="ir.actions.act_window">
+            <field name="name">Rapport de réapprovisionnement</field>
+            <field name="res_model">replen.plan</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="replen_plan.replen_plan_report_form"/>
+            <field name="target">current</field>
+        </record>
+
+        <record id="action_replen_plan_validated" model="ir.actions.act_window">
+            <field name="name">Plan validé</field>
+            <field name="res_model">replen.plan</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="replen_plan.replen_plan_validated_form"/>
+            <field name="target">current</field>
         </record>
 
         <!-- Menu principal -->

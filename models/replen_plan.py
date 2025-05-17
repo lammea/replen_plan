@@ -651,3 +651,56 @@ class ReplenPlan(models.Model):
                 },
             },
         }
+
+    @api.model
+    def get_formview_id(self, access_uid=None):
+        """Retourne l'ID de la vue form appropriée en fonction de l'état du plan"""
+        if isinstance(self.id, models.NewId):
+            # Nouveau plan, utiliser la vue par défaut
+            return super().get_formview_id(access_uid=access_uid)
+
+        plan = self.sudo().browse(self.id)
+        view_mapping = {
+            'draft': 'replen_plan.replen_plan_view_form',
+            'forecast': 'replen_plan.replen_plan_forecast_form',
+            'plan': 'replen_plan.replen_plan_supply_form',
+            'report': 'replen_plan.replen_plan_report_form',
+            'done': 'replen_plan.replen_plan_validated_form'
+        }
+        
+        if plan.state in view_mapping:
+            # Afficher un message de bienvenue
+            state_messages = {
+                'draft': _("Vous pouvez continuer le paramétrage de votre plan."),
+                'forecast': _("Vous pouvez continuer la saisie de vos prévisions."),
+                'plan': _("Vous pouvez continuer l'ajustement de votre plan de réapprovisionnement."),
+                'report': _("Vous pouvez continuer la sélection des fournisseurs."),
+                'done': _("Le plan est validé et en lecture seule.")
+            }
+            message = _("Bienvenue dans votre plan de réapprovisionnement. ") + state_messages[plan.state]
+            self.env.user.notify_info(message=message, title=_("Reprise de l'activité"))
+            
+            return self.env.ref(view_mapping[plan.state]).id
+        return super().get_formview_id(access_uid=access_uid)
+
+    def open_form(self):
+        """Ouvre la vue appropriée en fonction de l'état du plan"""
+        self.ensure_one()
+        action_mapping = {
+            'draft': 'replen_plan.action_replen_plan',
+            'forecast': 'replen_plan.action_replen_plan_forecast',
+            'plan': 'replen_plan.action_replen_plan_supply',
+            'report': 'replen_plan.action_replen_plan_report',
+            'done': 'replen_plan.action_replen_plan_validated'
+        }
+        
+        action = self.env.ref(action_mapping[self.state]).read()[0]
+        action.update({
+            'res_id': self.id,
+            'target': 'current',
+        })
+        return action
+
+    def action_open_plan(self):
+        """Méthode appelée lors du clic sur un plan dans la vue liste"""
+        return self.open_form()

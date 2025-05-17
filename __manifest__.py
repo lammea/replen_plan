@@ -23,4 +23,9 @@
     'application': True,
     'auto_install': False,
     'license': 'LGPL-3',
+    'assets': {
+        'web.assets_backend': [
+            'replen_plan/static/src/js/replen_plan_list.js',
+        ],
+    },
 }

@@ -88,7 +88,12 @@
             <field name="name">replen.plan.tree</field>
             <field name="model">replen.plan</field>
             <field name="arch" type="xml">
-                <tree string="Plans de réapprovisionnement" decoration-info="state == 'draft'" decoration-warning="state == 'forecast'" decoration-danger="state == 'plan'" decoration-success="state == 'done'">
+                <tree string="Plans de réapprovisionnement" 
+                      decoration-info="state == 'draft'" 
+                      decoration-warning="state == 'forecast'" 
+                      decoration-danger="state == 'plan'" 
+                      decoration-success="state == 'done'"
+                      js_class="replen_plan_list">
                     <field name="name"/>
                     <field name="period_type"/>
                     <field name="sub_period"/>
