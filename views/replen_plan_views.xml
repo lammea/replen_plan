@@ -198,14 +198,11 @@
             <field name="arch" type="xml">
                 <form string="Plan de réapprovisionnement">
                     <header>
-                        <button name="action_back_to_forecast" 
-                                string="Retour aux prévisions" 
-                                type="object" 
-                                class="btn-secondary"
-                                states="plan"/>
-                        <field name="state" widget="statusbar" 
-                               statusbar_visible="draft,forecast,plan,done"
-                               clickable="True"/>
+                        <button name="action_back_to_forecast" type="object" string="Retour aux prévisions" 
+                                states="plan" class="oe_highlight"/>
+                        <button name="action_to_report" type="object" string="Générer le rapport" 
+                                states="plan" class="oe_highlight"/>
+                        <field name="state" widget="statusbar" statusbar_visible="draft,forecast,plan,report,done"/>
                     </header>
                     <sheet>
                         <div class="oe_title">
@@ -234,6 +231,59 @@
                                         <field name="current_stock" readonly="1"/>
                                         <field name="safety_stock" readonly="1"/>
                                         <field name="quantity_to_supply" decoration-danger="quantity_to_supply > 0"/>
+                                    </tree>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Vue Form pour le rapport de réapprovisionnement -->
+        <record id="replen_plan_report_form" model="ir.ui.view">
+            <field name="name">replen.plan.report.form</field>
+            <field name="model">replen.plan</field>
+            <field name="arch" type="xml">
+                <form string="Rapport de réapprovisionnement">
+                    <header>
+                        <button name="action_back_to_plan" type="object" string="Retour au plan" 
+                                states="report" class="btn-secondary"/>
+                        <button name="action_validate" type="object" string="Valider" 
+                                states="report" class="oe_highlight"/>
+                        <field name="state" widget="statusbar" statusbar_visible="draft,forecast,plan,report,done"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name" readonly="1"/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="date_start" readonly="1"/>
+                                <field name="period_type" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="date_end" readonly="1"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Sélection des fournisseurs" name="suppliers">
+                                <field name="component_ids">
+                                    <tree editable="bottom">
+                                        <field name="product_id" readonly="1"/>
+                                        <field name="quantity_to_supply" readonly="1"/>
+                                        <field name="available_supplier_ids" invisible="1"/>
+                                        <field name="supplier_id" 
+                                               options="{'no_create': True, 'no_open': True}"
+                                               force_save="1"/>
+                                        <button string="Sélectionner un fournisseur" 
+                                                type="object" 
+                                                name="dummy_button"
+                                                class="text-muted"
+                                                attrs="{'invisible': [('supplier_id', '!=', False)]}"
+                                                readonly="1"/>
                                     </tree>
                                 </field>
                             </page>

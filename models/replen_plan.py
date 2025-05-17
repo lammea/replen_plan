@@ -2,6 +2,7 @@ from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError, UserError
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
+import base64
 
 class ReplenPlanLine(models.Model):
     _name = 'replen.plan.line'
@@ -38,6 +39,35 @@ class ReplenPlanComponent(models.Model):
         readonly=True,
         help="Quantité calculée automatiquement selon la formule standard"
     )
+    available_supplier_ids = fields.Many2many(
+        'res.partner',
+        string='Fournisseurs disponibles',
+        compute='_compute_available_suppliers',
+        store=True
+    )
+    supplier_id = fields.Many2one(
+        'res.partner',
+        string='Fournisseur',
+        domain="[('id', 'in', available_supplier_ids)]",
+        help="Sélectionner un fournisseur pour ce composant"
+    )
+
+    def dummy_button(self):
+        """Méthode factice pour le bouton de sélection de fournisseur"""
+        return True
+
+    @api.depends('product_id')
+    def _compute_available_suppliers(self):
+        for line in self:
+            if line.product_id:
+                suppliers = line.product_id.seller_ids.mapped('name')
+                line.available_supplier_ids = [(6, 0, suppliers.ids)]
+                # Si un seul fournisseur, le sélectionner automatiquement
+                if len(suppliers) == 1:
+                    line.supplier_id = suppliers[0]
+            else:
+                line.available_supplier_ids = [(6, 0, [])]
+                line.supplier_id = False
 
     @api.depends('forecast_consumption', 'current_stock', 'safety_stock')
     def _compute_quantity_to_supply(self):
@@ -59,6 +89,7 @@ class ReplenPlan(models.Model):
         ('draft', 'Brouillon'),
         ('forecast', 'Prévisions'),
         ('plan', 'Plan de réapprovisionnement'),
+        ('report', 'Rapport de réapprovisionnement'),
         ('done', 'Validé')
     ], string='État', default='draft', required=True, tracking=True)
 
@@ -521,5 +552,51 @@ class ReplenPlan(models.Model):
             'res_id': self.id,
             'view_mode': 'form',
             'view_id': self.env.ref('replen_plan.replen_plan_forecast_form').id,
+            'target': 'current',
+        }
+
+    def action_back_to_plan(self):
+        """Retour à l'étape de plan depuis l'état validé"""
+        self.ensure_one()
+        self.write({'state': 'plan'})
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'replen.plan',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'view_id': self.env.ref('replen_plan.replen_plan_supply_form').id,
+            'target': 'current',
+        }
+
+    def action_to_report(self):
+        """Passage à l'étape de rapport de réapprovisionnement"""
+        self.ensure_one()
+        
+        # Force le recalcul des fournisseurs disponibles
+        for component in self.component_ids:
+            component._compute_available_suppliers()
+            
+        self.write({'state': 'report'})
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'replen.plan',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'view_id': self.env.ref('replen_plan.replen_plan_report_form').id,
+            'target': 'current',
+        }
+
+    def action_validate(self):
+        """Validation finale du plan de réapprovisionnement"""
+        self.ensure_one()
+        # Vérifier que tous les composants ont un fournisseur sélectionné
+        if any(not comp.supplier_id for comp in self.component_ids):
+            raise UserError(_("Veuillez sélectionner un fournisseur pour tous les composants."))
+        self.write({'state': 'done'})
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'replen.plan',
+            'res_id': self.id,
+            'view_mode': 'form',
             'target': 'current',
         }
