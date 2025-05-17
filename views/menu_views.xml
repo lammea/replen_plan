@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data>
+        <!-- Action pour la liste des plans -->
+        <record id="action_replen_plan" model="ir.actions.act_window">
+            <field name="name">Plans de réapprovisionnement</field>
+            <field name="res_model">replen.plan</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Créer votre première planification du réapprovisionnement
+                </p>
+            </field>
+        </record>
+
         <!-- Menu principal -->
         <menuitem id="menu_replen_root"
                   name="Réapprovisionnement"

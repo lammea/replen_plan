@@ -596,9 +596,11 @@ class ReplenPlan(models.Model):
 
         # Grouper les composants par fournisseur
         supplier_products = {}
+        rfq_count = 0
         for component in self.component_ids:
             if component.supplier_id not in supplier_products:
                 supplier_products[component.supplier_id] = []
+                rfq_count += 1
             supplier_products[component.supplier_id].append({
                 'product_id': component.product_id.id,
                 'quantity': component.quantity_to_supply,
@@ -606,7 +608,6 @@ class ReplenPlan(models.Model):
 
         # Créer une demande de prix pour chaque fournisseur
         purchase_obj = self.env['purchase.order']
-        rfq_ids = []
         for supplier, products in supplier_products.items():
             # Créer l'entête de la demande de prix
             po_vals = {
@@ -615,7 +616,6 @@ class ReplenPlan(models.Model):
                 'origin': f'Réappro {self.name}',
             }
             purchase_order = purchase_obj.create(po_vals)
-            rfq_ids.append(purchase_order.id)
 
             # Ajouter les lignes de produits
             for product in products:
@@ -631,21 +631,23 @@ class ReplenPlan(models.Model):
         # Passage à l'état validé
         self.write({'state': 'done'})
 
-        # Afficher un message de succès
-        message = _('Les demandes de prix ont été générées avec succès.')
-        self.env['bus.bus']._sendone(self.env.user.partner_id, 'simple_notification', {
-            'title': _('Succès'),
-            'message': message,
-            'type': 'success',
-        })
-
-        # Retourner l'action pour afficher les demandes de prix générées
-        action = {
-            'name': _('Demandes de prix générées'),
-            'type': 'ir.actions.act_window',
-            'res_model': 'purchase.order',
-            'view_mode': 'tree,form',
-            'domain': [('id', 'in', rfq_ids)],
-            'target': 'current',
+        # Message de notification
+        message = _('{} demande(s) de prix ont été générée(s) avec succès.').format(rfq_count)
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('Succès'),
+                'message': message,
+                'sticky': False,
+                'type': 'success',
+                'next': {
+                    'type': 'ir.actions.act_window',
+                    'res_model': 'replen.plan',
+                    'res_id': self.id,
+                    'view_mode': 'form',
+                    'views': [(self.env.ref('replen_plan.replen_plan_validated_form').id, 'form')],
+                    'target': 'current',
+                },
+            },
         }
-        return action

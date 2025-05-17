@@ -163,16 +163,16 @@
                         </group>
                         <notebook>
                             <page string="Prévisions" name="forecasts">
-                                <field name="line_ids">
+                                <field name="line_ids" attrs="{'readonly': [('state', '!=', 'forecast')]}">
                                     <tree editable="bottom" create="0" delete="0">
                                         <field name="product_id" readonly="1"/>
                                         <field name="date" readonly="1"/>
                                         <field name="historic_qty" readonly="1"/>
-                                        <field name="forecast_qty"/>
+                                        <field name="forecast_qty" attrs="{'readonly': [('parent.state', '!=', 'forecast')]}"/>
                                     </tree>
                                 </field>
                             </page>
-                            <page string="Plan de réapprovisionnement" name="components" attrs="{'invisible': [('state', '!=', 'plan')]}">
+                            <page string="Composants" name="components" attrs="{'invisible': [('state', '!=', 'plan')]}">
                                 <field name="component_ids" readonly="1">
                                     <tree>
                                         <field name="product_id"/>
@@ -284,6 +284,67 @@
                                                 class="text-muted"
                                                 attrs="{'invisible': [('supplier_id', '!=', False)]}"
                                                 readonly="1"/>
+                                    </tree>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Vue Form pour l'état validé -->
+        <record id="replen_plan_validated_form" model="ir.ui.view">
+            <field name="name">replen.plan.validated.form</field>
+            <field name="model">replen.plan</field>
+            <field name="arch" type="xml">
+                <form string="Récapitulatif du plan de réapprovisionnement" create="false" edit="false" delete="false">
+                    <header>
+                        <field name="state" widget="statusbar" statusbar_visible="draft,forecast,plan,report,done"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name" readonly="1"/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="period_type" readonly="1"/>
+                                <field name="sub_period_monthly" readonly="1" 
+                                       attrs="{'invisible': [('period_type', '!=', 'monthly')]}"/>
+                                <field name="sub_period_quarterly" readonly="1"
+                                       attrs="{'invisible': [('period_type', '!=', 'quarterly')]}"/>
+                                <field name="sub_period_biannual" readonly="1"
+                                       attrs="{'invisible': [('period_type', '!=', 'biannual')]}"/>
+                                <field name="sub_period_annual" readonly="1"
+                                       attrs="{'invisible': [('period_type', '!=', 'annual')]}"/>
+                            </group>
+                            <group>
+                                <field name="date_start" readonly="1"/>
+                                <field name="date_end" readonly="1"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Produits" name="products">
+                                <field name="line_ids" readonly="1">
+                                    <tree>
+                                        <field name="product_id"/>
+                                        <field name="date"/>
+                                        <field name="historic_qty"/>
+                                        <field name="forecast_qty"/>
+                                    </tree>
+                                </field>
+                            </page>
+                            <page string="Composants" name="components">
+                                <field name="component_ids" readonly="1">
+                                    <tree>
+                                        <field name="product_id"/>
+                                        <field name="forecast_consumption"/>
+                                        <field name="current_stock"/>
+                                        <field name="safety_stock"/>
+                                        <field name="quantity_to_supply" decoration-danger="quantity_to_supply > 0"/>
+                                        <field name="supplier_id"/>
                                     </tree>
                                 </field>
                             </page>

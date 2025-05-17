@@ -1,23 +1,17 @@
 {
-    'name': 'Planificateur de réapprovisionnement',
+    'name': 'Plan de réapprovisionnement',
     'version': '15.0.1.0.0',
-    'category': 'Inventory/Purchase',
-    'summary': 'Génération automatique des demandes de prix basée sur les prévisions de vente',
+    'category': 'Inventory',
+    'summary': 'Gestion des plans de réapprovisionnement',
     'description': """
-        Module de planification de réapprovisionnement permettant de :
-        - Créer des plans de réapprovisionnement
-        - Saisir des prévisions de vente
-        - Générer des plans de réapprovisionnement
-        - Créer automatiquement des demandes de prix
+        Module de gestion des plans de réapprovisionnement permettant de :
+        - Planifier les besoins en composants
+        - Gérer les prévisions
+        - Générer les demandes de prix
     """,
-    'author': 'Odoo',
-    'depends': [
-        'base',
-        'stock',
-        'purchase',
-        'mrp',
-        'sale',
-    ],
+    'author': 'Votre Société',
+    'website': 'https://www.votresociete.com',
+    'depends': ['base', 'stock', 'purchase', 'mrp', 'sale'],
     'data': [
         'security/ir.model.access.csv',
         'data/ir_sequence_data.xml',
