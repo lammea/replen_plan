@@ -178,7 +178,7 @@ class ReplenPlan(models.Model):
         'plan_id',
         'product_id',
         string='Produits',
-        domain="[('bom_ids', '!=', False), ('sale_ok', '=', True), ('type', '=', 'product')]",
+        domain=lambda self: self._get_product_domain(),
         copy=True
     )
 
@@ -230,13 +230,7 @@ class ReplenPlan(models.Model):
         self.sub_period_annual = False
         
         # Réinitialisation des produits avec tous les produits éligibles
-        domain = [
-            ('bom_ids', '!=', False),  # Tous les produits ayant une nomenclature
-            ('sale_ok', '=', True),    # Produits pouvant être vendus
-            ('type', '=', 'product'),  # Produits stockables uniquement
-            ('active', '=', True)      # Produits actifs uniquement
-        ]
-        products = self.env['product.product'].search(domain)
+        products = self.env['product.product'].search(self._get_product_domain())
         self.product_ids = [(6, 0, products.ids)]
 
     @api.onchange('sub_period_monthly', 'sub_period_quarterly', 
@@ -245,13 +239,7 @@ class ReplenPlan(models.Model):
         # Réinitialisation des produits avec tous les produits éligibles
         if any([self.sub_period_monthly, self.sub_period_quarterly,
                 self.sub_period_biannual, self.sub_period_annual]):
-            domain = [
-                ('bom_ids', '!=', False),  # Produits avec nomenclature
-                ('sale_ok', '=', True),    # Produits pouvant être vendus
-                ('type', '=', 'product'),  # Produits stockables uniquement
-                ('active', '=', True)      # Produits actifs uniquement
-            ]
-            products = self.env['product.product'].search(domain)
+            products = self.env['product.product'].search(self._get_product_domain())
             self.product_ids = [(6, 0, products.ids)]
         
         # Gestion du message de changement d'année
@@ -319,9 +307,17 @@ class ReplenPlan(models.Model):
 
     @api.model
     def create(self, vals):
+        """Surcharge de la méthode de création pour gérer la séquence et l'état initial"""
         if vals.get('name', _('Nouveau')) == _('Nouveau'):
             vals['name'] = self.env['ir.sequence'].next_by_code('replen.plan') or _('Nouveau')
-        return super(ReplenPlan, self).create(vals)
+        
+        # S'assurer que l'état initial est 'draft'
+        vals['state'] = 'draft'
+        
+        # Création de l'enregistrement
+        result = super(ReplenPlan, self).create(vals)
+        
+        return result
 
     @api.depends('period_type', 'sub_period')
     def _compute_dates(self):
@@ -480,23 +476,19 @@ class ReplenPlan(models.Model):
             return self._generate_plan()
 
     def _get_bom_components(self, product, qty, level=0, component_needs=None):
-        """Récupère récursivement tous les composants d'un produit, y compris les sous-assemblages
-        Args:
-            product: product.product - Le produit dont on veut récupérer les composants
-            qty: float - La quantité nécessaire du produit
-            level: int - Niveau de récursion pour éviter les boucles infinies
-            component_needs: dict - Dictionnaire pour accumuler les besoins en composants
-        Returns:
-            dict: Dictionnaire des besoins en composants
-        """
+        """Récupère récursivement tous les composants d'un produit, y compris les sous-assemblages"""
         if component_needs is None:
             component_needs = {}
         if level > 10:  # Protection contre les boucles infinies
             return component_needs
 
-        # Récupérer la nomenclature
-        bom = self.env['mrp.bom']._bom_find(product)[product]
-        if not bom:
+        # Récupérer la nomenclature spécifique à la variante
+        boms = self.env['mrp.bom']._bom_find(product)
+        if not boms or not boms.get(product):
+            return component_needs
+            
+        bom = boms[product]
+        if not bom or not bom.bom_line_ids:
             return component_needs
 
         # Pour chaque composant dans la nomenclature
@@ -505,8 +497,10 @@ class ReplenPlan(models.Model):
             qty_needed = bom_line.product_qty * qty
 
             # Si le composant a une nomenclature (sous-assemblage ou kit)
-            sub_bom = self.env['mrp.bom']._bom_find(component)[component]
-            if sub_bom:
+            sub_boms = self.env['mrp.bom']._bom_find(component)
+            sub_bom = sub_boms.get(component) if sub_boms else False
+            
+            if sub_bom and sub_bom.bom_line_ids:
                 # Récursion pour obtenir les composants du sous-assemblage
                 self._get_bom_components(component, qty_needed, level + 1, component_needs)
             else:
@@ -658,11 +652,6 @@ class ReplenPlan(models.Model):
     @api.model
     def get_formview_id(self, access_uid=None):
         """Retourne l'ID de la vue form appropriée en fonction de l'état du plan"""
-        if isinstance(self.id, models.NewId):
-            # Nouveau plan, utiliser la vue par défaut
-            return super().get_formview_id(access_uid=access_uid)
-
-        plan = self.sudo().browse(self.id)
         view_mapping = {
             'draft': 'replen_plan.replen_plan_view_form',
             'forecast': 'replen_plan.replen_plan_forecast_form',
@@ -671,20 +660,16 @@ class ReplenPlan(models.Model):
             'done': 'replen_plan.replen_plan_validated_form'
         }
         
-        if plan.state in view_mapping:
-            # Afficher un message de bienvenue
-            state_messages = {
-                'draft': _("Vous pouvez continuer le paramétrage de votre plan."),
-                'forecast': _("Vous pouvez continuer la saisie de vos prévisions."),
-                'plan': _("Vous pouvez continuer l'ajustement de votre plan de réapprovisionnement."),
-                'report': _("Vous pouvez continuer la sélection des fournisseurs."),
-                'done': _("Le plan est validé et en lecture seule.")
-            }
-            message = _("Bienvenue dans votre plan de réapprovisionnement. ") + state_messages[plan.state]
-            self.env.user.notify_info(message=message, title=_("Reprise de l'activité"))
+        # Pour un nouvel enregistrement ou état par défaut
+        if not self._context.get('state_view'):
+            return self.env.ref('replen_plan.replen_plan_view_form').id
             
-            return self.env.ref(view_mapping[plan.state]).id
-        return super().get_formview_id(access_uid=access_uid)
+        # Pour un état spécifique
+        state = self._context.get('state_view')
+        if state in view_mapping:
+            return self.env.ref(view_mapping[state]).id
+            
+        return self.env.ref('replen_plan.replen_plan_view_form').id
 
     def open_form(self):
         """Ouvre la vue appropriée en fonction de l'état du plan"""
@@ -728,3 +713,42 @@ class ReplenPlan(models.Model):
     def _compute_total_amount(self):
         for plan in self:
             plan.total_amount = sum(plan.component_ids.mapped('total_price'))
+
+    def _show_welcome_message(self):
+        """Affiche un message de bienvenue en fonction de l'état du plan"""
+        state_messages = {
+            'draft': _("Vous pouvez continuer le paramétrage de votre plan."),
+            'forecast': _("Vous pouvez continuer la saisie de vos prévisions."),
+            'plan': _("Vous pouvez continuer l'ajustement de votre plan de réapprovisionnement."),
+            'report': _("Vous pouvez continuer la sélection des fournisseurs."),
+            'done': _("Le plan est validé et en lecture seule.")
+        }
+        
+        if self.state in state_messages:
+            message = _("Bienvenue dans votre plan de réapprovisionnement. ") + state_messages[self.state]
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': _("Reprise de l'activité"),
+                    'message': message,
+                    'type': 'info',
+                    'sticky': False,
+                }
+            }
+
+    def write(self, vals):
+        """Surcharge de la méthode d'écriture pour gérer les messages de bienvenue"""
+        result = super(ReplenPlan, self).write(vals)
+        if 'state' in vals:
+            return self._show_welcome_message()
+        return result
+
+    def _get_product_domain(self):
+        """Calcule le domaine pour les produits en tenant compte des variantes"""
+        return [
+            ('product_tmpl_id.bom_ids', '!=', False),  # Produits avec nomenclature au niveau du modèle
+            ('sale_ok', '=', True),                    # Produits pouvant être vendus
+            ('type', '=', 'product'),                  # Produits stockables uniquement
+            ('active', '=', True)                      # Produits actifs uniquement
+        ]
