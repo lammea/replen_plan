@@ -361,6 +361,27 @@ class ReplenPlan(models.Model):
         for plan in self:
             plan.has_empty_forecasts = any(line.forecast_qty <= 0 for line in plan.line_ids)
 
+    def _return_form_action(self, state):
+        """Helper pour retourner l'action appropriée avec le bon contexte"""
+        action_mapping = {
+            'draft': 'replen_plan.action_replen_plan_draft',
+            'forecast': 'replen_plan.action_replen_plan_forecast',
+            'plan': 'replen_plan.action_replen_plan_supply',
+            'report': 'replen_plan.action_replen_plan_report',
+            'done': 'replen_plan.action_replen_plan_validated'
+        }
+        
+        action = self.env.ref(action_mapping[state]).read()[0]
+        action.update({
+            'res_id': self.id,
+            'target': 'current',
+            'context': {
+                'form_view_initial_mode': 'readonly' if state == 'done' else 'edit',
+                'state_view': state
+            }
+        })
+        return action
+
     def action_to_forecast(self):
         self.ensure_one()
         if not self.product_ids:
@@ -394,20 +415,9 @@ class ReplenPlan(models.Model):
         self.env['replen.plan.line'].create(lines_to_create)
             
         # Passage à l'état 'forecast'
-        self.write({
-            'state': 'forecast',
-        })
+        self.write({'state': 'forecast'})
         
-        # Retourner une action pour ouvrir la vue de saisie des prévisions
-        return {
-            'name': _('Saisie des prévisions - {}').format(self.sub_period),
-            'type': 'ir.actions.act_window',
-            'res_model': 'replen.plan',
-            'res_id': self.id,
-            'view_mode': 'form',
-            'view_id': self.env.ref('replen_plan.replen_plan_forecast_form').id,
-            'target': 'current',
-        }
+        return self._return_form_action('forecast')
 
     def action_generate_plan(self):
         self.ensure_one()
@@ -518,58 +528,24 @@ class ReplenPlan(models.Model):
 
         # Passage à l'état 'plan'
         self.write({'state': 'plan'})
-
-        # Retourner une action pour ouvrir la vue du plan de réapprovisionnement
-        return {
-            'name': _('Plan de réapprovisionnement - {}').format(self.sub_period),
-            'type': 'ir.actions.act_window',
-            'res_model': 'replen.plan',
-            'res_id': self.id,
-            'view_mode': 'form',
-            'view_id': self.env.ref('replen_plan.replen_plan_supply_form').id,
-            'target': 'current',
-        }
+        return self._return_form_action('plan')
 
     def action_back_to_draft(self):
         self.ensure_one()
         self.write({'state': 'draft'})
-        return {
-            'type': 'ir.actions.act_window',
-            'res_model': 'replen.plan',
-            'res_id': self.id,
-            'view_mode': 'form',
-            'view_id': self.env.ref('replen_plan.replen_plan_view_form').id,
-            'target': 'current',
-            'context': {'keep_products': True}
-        }
+        return self._return_form_action('draft')
 
     def action_back_to_forecast(self):
         self.ensure_one()
         self.write({'state': 'forecast'})
-        return {
-            'type': 'ir.actions.act_window',
-            'res_model': 'replen.plan',
-            'res_id': self.id,
-            'view_mode': 'form',
-            'view_id': self.env.ref('replen_plan.replen_plan_forecast_form').id,
-            'target': 'current',
-        }
+        return self._return_form_action('forecast')
 
     def action_back_to_plan(self):
-        """Retour à l'étape de plan depuis l'état validé"""
         self.ensure_one()
         self.write({'state': 'plan'})
-        return {
-            'type': 'ir.actions.act_window',
-            'res_model': 'replen.plan',
-            'res_id': self.id,
-            'view_mode': 'form',
-            'view_id': self.env.ref('replen_plan.replen_plan_supply_form').id,
-            'target': 'current',
-        }
+        return self._return_form_action('plan')
 
     def action_to_report(self):
-        """Passage à l'étape de rapport de réapprovisionnement"""
         self.ensure_one()
         
         # Force le recalcul des fournisseurs disponibles
@@ -577,17 +553,9 @@ class ReplenPlan(models.Model):
             component._compute_available_suppliers()
             
         self.write({'state': 'report'})
-        return {
-            'type': 'ir.actions.act_window',
-            'res_model': 'replen.plan',
-            'res_id': self.id,
-            'view_mode': 'form',
-            'view_id': self.env.ref('replen_plan.replen_plan_report_form').id,
-            'target': 'current',
-        }
+        return self._return_form_action('report')
 
     def action_generate_rfq(self):
-        """Génération des demandes de prix et validation finale du plan"""
         self.ensure_one()
         
         # Vérifier que tous les composants ont un fournisseur sélectionné
@@ -631,7 +599,7 @@ class ReplenPlan(models.Model):
         # Passage à l'état validé
         self.write({'state': 'done'})
 
-        # Message de notification
+        # Message de notification avec redirection
         message = _('{} demande(s) de prix ont été générée(s) avec succès.').format(rfq_count)
         return {
             'type': 'ir.actions.client',
@@ -641,14 +609,7 @@ class ReplenPlan(models.Model):
                 'message': message,
                 'sticky': False,
                 'type': 'success',
-                'next': {
-                    'type': 'ir.actions.act_window',
-                    'res_model': 'replen.plan',
-                    'res_id': self.id,
-                    'view_mode': 'form',
-                    'views': [(self.env.ref('replen_plan.replen_plan_validated_form').id, 'form')],
-                    'target': 'current',
-                },
+                'next': self._return_form_action('done'),
             },
         }
 
@@ -686,18 +647,34 @@ class ReplenPlan(models.Model):
     def open_form(self):
         """Ouvre la vue appropriée en fonction de l'état du plan"""
         self.ensure_one()
+        
+        # Récupérer l'état demandé du contexte ou utiliser l'état actuel
+        requested_state = self.env.context.get('state_view', self.state)
+        
         action_mapping = {
-            'draft': 'replen_plan.action_replen_plan',
+            'draft': 'replen_plan.action_replen_plan_draft',
             'forecast': 'replen_plan.action_replen_plan_forecast',
             'plan': 'replen_plan.action_replen_plan_supply',
             'report': 'replen_plan.action_replen_plan_report',
             'done': 'replen_plan.action_replen_plan_validated'
         }
         
-        action = self.env.ref(action_mapping[self.state]).read()[0]
+        # Si l'état demandé est antérieur à l'état actuel, utiliser l'état actuel
+        state_sequence = ['draft', 'forecast', 'plan', 'report', 'done']
+        current_index = state_sequence.index(self.state)
+        requested_index = state_sequence.index(requested_state)
+        
+        # Utiliser l'état actuel si l'état demandé est antérieur
+        final_state = self.state if requested_index < current_index else requested_state
+        
+        action = self.env.ref(action_mapping[final_state]).read()[0]
         action.update({
             'res_id': self.id,
             'target': 'current',
+            'context': {
+                'form_view_initial_mode': 'readonly' if final_state == 'done' else 'edit',
+                'state_view': final_state
+            }
         })
         return action
 

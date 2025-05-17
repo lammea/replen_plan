@@ -11,18 +11,25 @@
                     Créer votre première planification du réapprovisionnement
                 </p>
             </field>
-            <field name="context">{
-                'form_view_initial_mode': 'edit',
-            }</field>
         </record>
 
         <!-- Actions spécifiques pour chaque état -->
+        <record id="action_replen_plan_draft" model="ir.actions.act_window">
+            <field name="name">Paramétrage initial</field>
+            <field name="res_model">replen.plan</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="replen_plan.replen_plan_view_form"/>
+            <field name="target">current</field>
+            <field name="context">{'form_view_initial_mode': 'edit', 'state_view': 'draft'}</field>
+        </record>
+
         <record id="action_replen_plan_forecast" model="ir.actions.act_window">
             <field name="name">Saisie des prévisions</field>
             <field name="res_model">replen.plan</field>
             <field name="view_mode">form</field>
             <field name="view_id" ref="replen_plan.replen_plan_forecast_form"/>
             <field name="target">current</field>
+            <field name="context">{'form_view_initial_mode': 'edit', 'state_view': 'forecast'}</field>
         </record>
 
         <record id="action_replen_plan_supply" model="ir.actions.act_window">
@@ -31,6 +38,7 @@
             <field name="view_mode">form</field>
             <field name="view_id" ref="replen_plan.replen_plan_supply_form"/>
             <field name="target">current</field>
+            <field name="context">{'form_view_initial_mode': 'edit', 'state_view': 'plan'}</field>
         </record>
 
         <record id="action_replen_plan_report" model="ir.actions.act_window">
@@ -39,6 +47,7 @@
             <field name="view_mode">form</field>
             <field name="view_id" ref="replen_plan.replen_plan_report_form"/>
             <field name="target">current</field>
+            <field name="context">{'form_view_initial_mode': 'edit', 'state_view': 'report'}</field>
         </record>
 
         <record id="action_replen_plan_validated" model="ir.actions.act_window">
@@ -47,6 +56,7 @@
             <field name="view_mode">form</field>
             <field name="view_id" ref="replen_plan.replen_plan_validated_form"/>
             <field name="target">current</field>
+            <field name="context">{'form_view_initial_mode': 'readonly', 'state_view': 'done'}</field>
         </record>
 
         <!-- Menu principal -->
