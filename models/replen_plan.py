@@ -26,13 +26,26 @@ class ReplenPlanComponent(models.Model):
         'Quantité à réapprovisionner',
         compute='_compute_quantity_to_supply',
         digits='Product Unit of Measure',
-        store=True
+        store=True,
+        readonly=False,
+        help="Quantité calculée automatiquement mais modifiable si nécessaire"
+    )
+    suggested_quantity = fields.Float(
+        'Quantité suggérée',
+        compute='_compute_quantity_to_supply',
+        digits='Product Unit of Measure',
+        store=True,
+        readonly=True,
+        help="Quantité calculée automatiquement selon la formule standard"
     )
 
     @api.depends('forecast_consumption', 'current_stock', 'safety_stock')
     def _compute_quantity_to_supply(self):
         for line in self:
-            line.quantity_to_supply = line.forecast_consumption - line.current_stock + line.safety_stock
+            calculated_qty = line.forecast_consumption - line.current_stock + line.safety_stock
+            line.suggested_quantity = calculated_qty
+            if not line.quantity_to_supply:
+                line.quantity_to_supply = calculated_qty
 
 class ReplenPlan(models.Model):
     _name = 'replen.plan'
@@ -145,7 +158,7 @@ class ReplenPlan(models.Model):
         
         # Réinitialisation des produits avec tous les produits éligibles
         domain = [
-            ('bom_ids', '!=', False),  # Produits avec nomenclature
+            ('bom_ids', '!=', False),  # Tous les produits ayant une nomenclature
             ('sale_ok', '=', True),    # Produits pouvant être vendus
             ('type', '=', 'product'),  # Produits stockables uniquement
             ('active', '=', True)      # Produits actifs uniquement
@@ -383,30 +396,38 @@ class ReplenPlan(models.Model):
         else:
             return self._generate_plan()
 
-    def _generate_plan(self):
-        self.ensure_one()
+    def _get_bom_components(self, product, qty, level=0, component_needs=None):
+        """Récupère récursivement tous les composants d'un produit, y compris les sous-assemblages
+        Args:
+            product: product.product - Le produit dont on veut récupérer les composants
+            qty: float - La quantité nécessaire du produit
+            level: int - Niveau de récursion pour éviter les boucles infinies
+            component_needs: dict - Dictionnaire pour accumuler les besoins en composants
+        Returns:
+            dict: Dictionnaire des besoins en composants
+        """
+        if component_needs is None:
+            component_needs = {}
+        if level > 10:  # Protection contre les boucles infinies
+            return component_needs
 
-        # Supprimer les anciennes lignes de composants
-        self.component_ids.unlink()
+        # Récupérer la nomenclature
+        bom = self.env['mrp.bom']._bom_find(product)[product]
+        if not bom:
+            return component_needs
 
-        # Dictionnaire pour accumuler les besoins par composant
-        component_needs = {}
+        # Pour chaque composant dans la nomenclature
+        for bom_line in bom.bom_line_ids:
+            component = bom_line.product_id
+            qty_needed = bom_line.product_qty * qty
 
-        # Pour chaque produit fini et ses prévisions
-        for line in self.line_ids:
-            product = line.product_id
-            forecast_qty = line.forecast_qty
-
-            # Récupérer la nomenclature
-            bom = self.env['mrp.bom']._bom_find(product)[product]
-            if not bom:
-                continue
-
-            # Pour chaque composant dans la nomenclature
-            for bom_line in bom.bom_line_ids:
-                component = bom_line.product_id
-                qty_needed = bom_line.product_qty * forecast_qty
-
+            # Si le composant a une nomenclature (sous-assemblage ou kit)
+            sub_bom = self.env['mrp.bom']._bom_find(component)[component]
+            if sub_bom:
+                # Récursion pour obtenir les composants du sous-assemblage
+                self._get_bom_components(component, qty_needed, level + 1, component_needs)
+            else:
+                # C'est un composant final
                 if component.id in component_needs:
                     component_needs[component.id]['qty'] += qty_needed
                 else:
@@ -426,6 +447,29 @@ class ReplenPlan(models.Model):
                         'current_stock': current_stock,
                         'safety_stock': safety_stock
                     }
+
+        return component_needs
+
+    def _generate_plan(self):
+        self.ensure_one()
+
+        # Supprimer les anciennes lignes de composants
+        self.component_ids.unlink()
+
+        # Dictionnaire pour accumuler les besoins par composant
+        component_needs = {}
+
+        # Pour chaque produit fini et ses prévisions
+        for line in self.line_ids:
+            product = line.product_id
+            forecast_qty = line.forecast_qty
+
+            # Récupérer tous les composants de manière récursive
+            component_needs = self._get_bom_components(
+                product, 
+                forecast_qty, 
+                component_needs=component_needs
+            )
 
         # Créer les lignes de composants
         component_lines = []
