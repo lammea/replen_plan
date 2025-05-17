@@ -283,14 +283,20 @@
                                         <field name="supplier_id" 
                                                options="{'no_create': True, 'no_open': True}"
                                                force_save="1"/>
-                                        <button string="Sélectionner un fournisseur" 
+                                               <button string="Sélectionner un fournisseur" 
                                                 type="object" 
                                                 name="dummy_button"
                                                 class="text-muted"
                                                 attrs="{'invisible': [('supplier_id', '!=', False)]}"
                                                 readonly="1"/>
+                                        <field name="total_price" readonly="1" sum="Total"/>
+                                        <field name="delivery_lead_time" readonly="1"/>
+                                        
                                     </tree>
                                 </field>
+                                <group class="oe_subtotal_footer">
+                                    <field name="total_amount" readonly="1" string="Total général"/>
+                                </group>
                             </page>
                         </notebook>
                     </sheet>

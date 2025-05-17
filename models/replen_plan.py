@@ -51,10 +51,45 @@ class ReplenPlanComponent(models.Model):
         domain="[('id', 'in', available_supplier_ids)]",
         help="Sélectionner un fournisseur pour ce composant"
     )
+    total_price = fields.Float(
+        'Prix total',
+        compute='_compute_supplier_info',
+        digits='Product Price',
+        store=True,
+        help="Prix total basé sur la quantité à réapprovisionner"
+    )
+    delivery_lead_time = fields.Integer(
+        'Délai de livraison (jours)',
+        compute='_compute_supplier_info',
+        store=True,
+        help="Délai de livraison du fournisseur sélectionné"
+    )
 
     def dummy_button(self):
         """Méthode factice pour le bouton de sélection de fournisseur"""
         return True
+
+    @api.depends('supplier_id', 'product_id', 'quantity_to_supply')
+    def _compute_supplier_info(self):
+        for line in self:
+            if not (line.supplier_id and line.product_id and line.quantity_to_supply):
+                line.total_price = 0.0
+                line.delivery_lead_time = 0
+                continue
+
+            # Rechercher l'info fournisseur
+            supplier_info = self.env['product.supplierinfo'].search([
+                ('name', '=', line.supplier_id.id),
+                ('product_tmpl_id', '=', line.product_id.product_tmpl_id.id)
+            ], limit=1)
+
+            if supplier_info:
+                # Calculer le prix total
+                line.total_price = supplier_info.price * line.quantity_to_supply
+                line.delivery_lead_time = supplier_info.delay
+            else:
+                line.total_price = 0.0
+                line.delivery_lead_time = 0
 
     @api.depends('product_id')
     def _compute_available_suppliers(self):
@@ -99,6 +134,13 @@ class ReplenPlan(models.Model):
         ('biannual', 'Semestrielle'),
         ('annual', 'Annuelle')
     ], string='Type de période', required=True)
+
+    total_amount = fields.Float(
+        string='Montant total',
+        compute='_compute_total_amount',
+        store=True,
+        help="Montant total du plan de réapprovisionnement"
+    )
 
     show_sub_period = fields.Boolean(compute='_compute_show_sub_period')
     show_products = fields.Boolean(compute='_compute_show_products')
@@ -681,3 +723,8 @@ class ReplenPlan(models.Model):
     def action_open_plan(self):
         """Méthode appelée lors du clic sur un plan dans la vue liste"""
         return self.open_form()
+
+    @api.depends('component_ids.total_price')
+    def _compute_total_amount(self):
+        for plan in self:
+            plan.total_amount = sum(plan.component_ids.mapped('total_price'))
