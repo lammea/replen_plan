@@ -112,6 +112,11 @@ class ReplenPlanComponent(models.Model):
             if not line.quantity_to_supply:
                 line.quantity_to_supply = calculated_qty
 
+    def action_reset_quantity_to_supply(self):
+        """Réinitialise la quantité à réapprovisionner à la valeur suggérée"""
+        for record in self:
+            record.quantity_to_supply = record.suggested_quantity
+
 class ReplenPlan(models.Model):
     _name = 'replen.plan'
     _description = 'Plan de réapprovisionnement'

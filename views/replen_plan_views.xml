@@ -239,6 +239,12 @@
                                         <field name="current_stock" readonly="1"/>
                                         <field name="safety_stock" readonly="1"/>
                                         <field name="quantity_to_supply" decoration-danger="quantity_to_supply > 0"/>
+                                        <button name="action_reset_quantity_to_supply" 
+                                                string="Réinitialiser" 
+                                                type="object" 
+                                                icon="fa-undo"
+                                                attrs="{'invisible': [('quantity_to_supply', '=', 'suggested_quantity')]}"
+                                                help="Réinitialiser la quantité à la valeur calculée"/>
                                     </tree>
                                 </field>
                             </page>
