@@ -121,6 +121,7 @@ class ReplenPlan(models.Model):
     _name = 'replen.plan'
     _description = 'Plan de réapprovisionnement'
     _order = 'create_date desc'
+    _inherit = ['mail.thread', 'mail.activity.mixin']
 
     name = fields.Char('Référence', required=True, copy=False, readonly=True, 
                       default=lambda self: _('Nouveau'))
@@ -321,6 +322,8 @@ class ReplenPlan(models.Model):
         
         # Création de l'enregistrement
         result = super(ReplenPlan, self).create(vals)
+        
+        result.message_post(body="Plan de réapprovisionnement créé.", subtype_xmlid="mail.mt_note")
         
         return result
 
@@ -744,9 +747,16 @@ class ReplenPlan(models.Model):
 
     def write(self, vals):
         """Surcharge de la méthode d'écriture pour gérer les messages de bienvenue"""
+        old_states = {rec.id: rec.state for rec in self}
         result = super(ReplenPlan, self).write(vals)
         if 'state' in vals:
-            return self._show_welcome_message()
+            for rec in self:
+                old_state = old_states.get(rec.id)
+                new_state = rec.state
+                if old_state != new_state:
+                    state_dict = dict(self.fields_get(allfields=['state'])['state']['selection'])
+                    message = f"État : {state_dict.get(old_state, old_state)} → {state_dict.get(new_state, new_state)}"
+                    rec.message_post(body=message, subtype_xmlid="mail.mt_note")
         return result
 
     def _get_product_domain(self):
