@@ -11,7 +11,7 @@
     """,
     'author': 'Votre Société',
     'website': 'https://www.votresociete.com',
-    'depends': ['base', 'stock', 'purchase', 'mrp', 'sale'],
+    'depends': ['base', 'stock', 'purchase', 'mrp', 'sale', 'mail'],
     'data': [
         'security/ir.model.access.csv',
         'data/ir_sequence_data.xml',

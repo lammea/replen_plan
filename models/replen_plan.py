@@ -132,7 +132,7 @@ class ReplenPlan(models.Model):
         ('plan', 'Planification du réapprovisionnement'),
         ('report', 'Rapport de réapprovisionnement'),
         ('done', 'Validé')
-    ], string='État', default='draft', required=True, tracking=True)
+    ], string='État', default='draft', required=True)
 
     period_type = fields.Selection([
         ('monthly', 'Mensuelle'),
