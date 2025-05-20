@@ -368,12 +368,35 @@ class ReplenPlan(models.Model):
             plan.date_end = end_date
 
     def _get_months_in_period(self):
-        """Retourne la liste des mois de la période"""
+        """Retourne la liste des mois de la période, en commençant au mois en cours si la période sélectionnée inclut le présent."""
         self.ensure_one()
         months = []
         start_date = self.date_start
         end_date = self.date_end
-        current_date = start_date
+        today = date.today()
+
+        # Si la période sélectionnée inclut l'année en cours, on commence au mois actuel
+        if self.period_type == 'annual' and self.sub_period == 'Y0':
+            if start_date.year == today.year:
+                current_date = date(today.year, today.month, 1)
+            else:
+                current_date = start_date
+        # Pour les autres périodes, on adapte aussi si la sous-période est "en cours"
+        elif self.period_type == 'monthly' and start_date.year == today.year and int(self.sub_period) == today.month:
+            current_date = date(today.year, today.month, 1)
+        elif self.period_type == 'quarterly' and start_date.year == today.year:
+            # Si le trimestre sélectionné commence avant le mois actuel, on commence au mois actuel
+            if start_date <= today <= end_date:
+                current_date = date(today.year, today.month, 1)
+            else:
+                current_date = start_date
+        elif self.period_type == 'biannual' and start_date.year == today.year:
+            if start_date <= today <= end_date:
+                current_date = date(today.year, today.month, 1)
+            else:
+                current_date = start_date
+        else:
+            current_date = start_date
 
         while current_date <= end_date:
             months.append(current_date)
