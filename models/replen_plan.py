@@ -10,9 +10,25 @@ class ReplenPlanLine(models.Model):
 
     plan_id = fields.Many2one('replen.plan', string='Plan', required=True, ondelete='cascade')
     product_id = fields.Many2one('product.product', string='Produit', required=True)
-    date = fields.Date('Date', required=True)
-    historic_qty = fields.Float('Historique des ventes', readonly=True)
-    forecast_qty = fields.Float('Prévision')
+    date = fields.Date('Mois', required=True)
+    date_display = fields.Char('Période', compute='_compute_date_display', store=True)
+    historic_qty = fields.Float('Historique des ventes (par mois)', readonly=True)
+    forecast_qty = fields.Float('Prévisions (par mois)')
+
+    @api.depends('date')
+    def _compute_date_display(self):
+        months_fr = {
+            1: 'Janvier', 2: 'Février', 3: 'Mars', 4: 'Avril',
+            5: 'Mai', 6: 'Juin', 7: 'Juillet', 8: 'Août',
+            9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre'
+        }
+        for line in self:
+            if line.date:
+                month = months_fr[line.date.month]
+                year = line.date.year
+                line.date_display = f"{month} {year}"
+            else:
+                line.date_display = ""
 
 class ReplenPlanSupplierLine(models.Model):
     _name = 'replen.plan.supplier.line'
@@ -169,11 +185,15 @@ class ReplenPlan(models.Model):
         ('S1', '1er Semestre'), ('S2', '2ème Semestre')
     ], string='Semestre')
 
-    sub_period_annual = fields.Selection([
-        ('Y0', 'Année en cours'), ('Y1', 'Année N+1'),
-        ('Y2', 'Année N+2'), ('Y3', 'Année N+3'),
-        ('Y4', 'Année N+4'), ('Y5', 'Année N+5')
-    ], string='Année')
+    @api.model
+    def _get_year_selection(self):
+        current_year = fields.Date.today().year
+        return [(str(year), str(year)) for year in range(current_year, current_year + 6)]
+
+    sub_period_annual = fields.Selection(
+        selection='_get_year_selection',
+        string='Année'
+    )
 
     sub_period = fields.Char(compute='_compute_sub_period', store=True)
     
@@ -337,12 +357,13 @@ class ReplenPlan(models.Model):
                 continue
                 
             today = date.today()
-            current_year = today.year
             
             if plan.period_type == 'monthly':
                 month = int(plan.sub_period)
                 if today.month > month:
-                    current_year += 1
+                    current_year = today.year + 1
+                else:
+                    current_year = today.year
                 start_date = date(current_year, month, 1)
                 end_date = (start_date + relativedelta(months=1, days=-1))
                 
@@ -350,7 +371,9 @@ class ReplenPlan(models.Model):
                 quarters = {'Q1': 1, 'Q2': 4, 'Q3': 7, 'Q4': 10}
                 month = quarters[plan.sub_period]
                 if today.month > month:
-                    current_year += 1
+                    current_year = today.year + 1
+                else:
+                    current_year = today.year
                 start_date = date(current_year, month, 1)
                 end_date = (start_date + relativedelta(months=3, days=-1))
                 
@@ -358,14 +381,16 @@ class ReplenPlan(models.Model):
                 semesters = {'S1': 1, 'S2': 7}
                 month = semesters[plan.sub_period]
                 if today.month > month:
-                    current_year += 1
+                    current_year = today.year + 1
+                else:
+                    current_year = today.year
                 start_date = date(current_year, month, 1)
                 end_date = (start_date + relativedelta(months=6, days=-1))
                 
             else:  # annual
-                year_offset = int(plan.sub_period[1])
-                start_date = date(today.year + year_offset, 1, 1)
-                end_date = date(today.year + year_offset, 12, 31)
+                year = int(plan.sub_period)
+                start_date = date(year, 1, 1)
+                end_date = date(year, 12, 31)
             
             plan.date_start = start_date
             plan.date_end = end_date

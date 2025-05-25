@@ -71,7 +71,7 @@
                                     <field name="line_ids" nolabel="1" readonly="1">
                                         <tree>
                                             <field name="product_id"/>
-                                            <field name="date"/>
+                                            <field name="date" readonly="1" widget="date" options="{'format': 'MMMM YYYY'}"/>
                                             <field name="historic_qty"/>
                                             <field name="forecast_qty"/>
                                         </tree>
@@ -172,8 +172,8 @@
                                 <field name="line_ids" attrs="{'readonly': [('state', '!=', 'forecast')]}">
                                     <tree editable="bottom" create="0" delete="0">
                                         <field name="product_id" readonly="1"/>
-                                        <field name="product_id" string="Nom complet" readonly="1" widget="many2one_tags"/>
-                                        <field name="date" readonly="1"/>
+                                        <field name="date" string="Mois" readonly="1" invisible="1"/>
+                                        <field name="date_display" string="Mois" readonly="1"/>
                                         <field name="historic_qty" readonly="1"/>
                                         <field name="forecast_qty" attrs="{'readonly': [('parent.state', '!=', 'forecast')]}"/>
                                     </tree>
@@ -382,7 +382,7 @@
                                 <field name="line_ids" readonly="1">
                                     <tree>
                                         <field name="product_id"/>
-                                        <field name="date"/>
+                                        <field name="date" readonly="1" widget="date" options="{'format': 'MMMM YYYY'}"/>
                                         <field name="historic_qty"/>
                                         <field name="forecast_qty"/>
                                     </tree>
