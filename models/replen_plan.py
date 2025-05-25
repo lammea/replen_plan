@@ -1,4 +1,4 @@
-from odoo import models, fields, api, _
+from odoo import models, fields, api, tools, _
 from odoo.exceptions import ValidationError, UserError
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
@@ -13,6 +13,22 @@ class ReplenPlanLine(models.Model):
     date = fields.Date('Date', required=True)
     historic_qty = fields.Float('Historique des ventes', readonly=True)
     forecast_qty = fields.Float('Prévision')
+
+class ReplenPlanSupplierLine(models.Model):
+    _name = 'replen.plan.supplier.line'
+    _description = 'Ligne de fournisseur pour réapprovisionnement'
+
+    component_id = fields.Many2one('replen.plan.component', string='Composant', required=True, ondelete='cascade')
+    supplier_id = fields.Many2one('res.partner', string='Fournisseur', required=True)
+    price = fields.Float('Prix unitaire', digits='Product Price')
+    total_price = fields.Float('Prix total', compute='_compute_total_price', store=True)
+    delivery_lead_time = fields.Integer('Délai de livraison (jours)')
+    quantity = fields.Float('Quantité', related='component_id.quantity_to_supply', store=True)
+
+    @api.depends('price', 'quantity')
+    def _compute_total_price(self):
+        for line in self:
+            line.total_price = line.price * line.quantity
 
 class ReplenPlanComponent(models.Model):
     _name = 'replen.plan.component'
@@ -39,70 +55,7 @@ class ReplenPlanComponent(models.Model):
         readonly=True,
         help="Quantité calculée automatiquement selon la formule standard"
     )
-    available_supplier_ids = fields.Many2many(
-        'res.partner',
-        string='Fournisseurs disponibles',
-        compute='_compute_available_suppliers',
-        store=True
-    )
-    supplier_id = fields.Many2one(
-        'res.partner',
-        string='Fournisseur',
-        domain="[('id', 'in', available_supplier_ids)]",
-        help="Sélectionner un fournisseur pour ce composant"
-    )
-    total_price = fields.Float(
-        'Prix total',
-        compute='_compute_supplier_info',
-        digits='Product Price',
-        store=True,
-        help="Prix total basé sur la quantité à réapprovisionner"
-    )
-    delivery_lead_time = fields.Integer(
-        'Délai de livraison (jours)',
-        compute='_compute_supplier_info',
-        store=True,
-        help="Délai de livraison du fournisseur sélectionné"
-    )
-
-    def dummy_button(self):
-        """Méthode factice pour le bouton de sélection de fournisseur"""
-        return True
-
-    @api.depends('supplier_id', 'product_id', 'quantity_to_supply')
-    def _compute_supplier_info(self):
-        for line in self:
-            if not (line.supplier_id and line.product_id and line.quantity_to_supply):
-                line.total_price = 0.0
-                line.delivery_lead_time = 0
-                continue
-
-            # Rechercher l'info fournisseur
-            supplier_info = self.env['product.supplierinfo'].search([
-                ('name', '=', line.supplier_id.id),
-                ('product_tmpl_id', '=', line.product_id.product_tmpl_id.id)
-            ], limit=1)
-
-            if supplier_info:
-                # Calculer le prix total
-                line.total_price = supplier_info.price * line.quantity_to_supply
-                line.delivery_lead_time = supplier_info.delay
-            else:
-                line.total_price = 0.0
-                line.delivery_lead_time = 0
-
-    @api.depends('product_id')
-    def _compute_available_suppliers(self):
-        for line in self:
-            if line.product_id:
-                suppliers = line.product_id.seller_ids.mapped('name')
-                line.available_supplier_ids = [(6, 0, suppliers.ids)]
-                # Si un seul fournisseur, le sélectionner automatiquement
-                if len(suppliers) == 1:
-                    line.supplier_id = suppliers[0]
-            else:
-                line.available_supplier_ids = [(6, 0, [])]
-                line.supplier_id = False
+    supplier_line_ids = fields.One2many('replen.plan.supplier.line', 'component_id', string='Lignes fournisseurs')
 
     @api.depends('forecast_consumption', 'current_stock', 'safety_stock')
     def _compute_quantity_to_supply(self):
@@ -116,6 +69,55 @@ class ReplenPlanComponent(models.Model):
         """Réinitialise la quantité à réapprovisionner à la valeur suggérée"""
         for record in self:
             record.quantity_to_supply = record.suggested_quantity
+
+    @api.model
+    def create(self, vals):
+        res = super(ReplenPlanComponent, self).create(vals)
+        if res.product_id:
+            # Créer une ligne pour chaque fournisseur
+            supplier_lines = []
+            for seller in res.product_id.seller_ids:
+                supplier_lines.append({
+                    'component_id': res.id,
+                    'supplier_id': seller.name.id,
+                    'price': seller.price,
+                    'delivery_lead_time': seller.delay,
+                })
+            if supplier_lines:
+                self.env['replen.plan.supplier.line'].create(supplier_lines)
+        return res
+
+class ReplenPlanComponentSupplierDisplay(models.Model):
+    _name = 'replen.plan.component.supplier.display'
+    _description = 'Affichage des composants et fournisseurs'
+    _auto = False
+    _order = 'product_id, supplier_id'
+
+    plan_id = fields.Many2one('replen.plan', string='Plan', readonly=True)
+    product_id = fields.Many2one('product.product', string='Composant', readonly=True)
+    supplier_id = fields.Many2one('res.partner', string='Fournisseur', readonly=True)
+    quantity_to_supply = fields.Float('Quantité à réapprovisionner', readonly=True)
+    price = fields.Float('Prix unitaire', readonly=True)
+    total_price = fields.Float('Prix total', readonly=True)
+    delivery_lead_time = fields.Integer('Délai de livraison (jours)', readonly=True)
+
+    def init(self):
+        tools.drop_view_if_exists(self.env.cr, self._table)
+        self.env.cr.execute("""
+            CREATE OR REPLACE VIEW %s AS (
+                SELECT 
+                    ROW_NUMBER() OVER () AS id,
+                    c.plan_id,
+                    c.product_id,
+                    sl.supplier_id,
+                    c.quantity_to_supply,
+                    sl.price,
+                    sl.total_price,
+                    sl.delivery_lead_time
+                FROM replen_plan_component c
+                JOIN replen_plan_supplier_line sl ON sl.component_id = c.id
+            )
+        """ % (self._table,))
 
 class ReplenPlan(models.Model):
     _name = 'replen.plan'
@@ -190,6 +192,7 @@ class ReplenPlan(models.Model):
 
     line_ids = fields.One2many('replen.plan.line', 'plan_id', string='Lignes de prévision')
     component_ids = fields.One2many('replen.plan.component', 'plan_id', string='Composants')
+    component_supplier_ids = fields.One2many('replen.plan.component.supplier.display', 'plan_id', string='Composants et fournisseurs')
     has_empty_forecasts = fields.Boolean(compute='_compute_has_empty_forecasts')
 
     product_count = fields.Integer(
@@ -617,29 +620,27 @@ class ReplenPlan(models.Model):
         
         # Force le recalcul des fournisseurs disponibles
         for component in self.component_ids:
-            component._compute_available_suppliers()
+            component._compute_quantity_to_supply()
             
         self.write({'state': 'report'})
         return self._return_form_action('report')
 
     def action_generate_rfq(self):
         self.ensure_one()
-        
-        # Vérifier que tous les composants ont un fournisseur sélectionné
-        if any(not comp.supplier_id for comp in self.component_ids):
-            raise UserError(_("Veuillez sélectionner un fournisseur pour tous les composants."))
 
         # Grouper les composants par fournisseur
         supplier_products = {}
         rfq_count = 0
         for component in self.component_ids:
-            if component.supplier_id not in supplier_products:
-                supplier_products[component.supplier_id] = []
-                rfq_count += 1
-            supplier_products[component.supplier_id].append({
-                'product_id': component.product_id.id,
-                'quantity': component.quantity_to_supply,
-            })
+            for supplier_line in component.supplier_line_ids:
+                if supplier_line.supplier_id not in supplier_products:
+                    supplier_products[supplier_line.supplier_id] = []
+                    rfq_count += 1
+                supplier_products[supplier_line.supplier_id].append({
+                    'product_id': component.product_id.id,
+                    'quantity': component.quantity_to_supply,
+                    'price_unit': supplier_line.price,
+                })
 
         # Créer une demande de prix pour chaque fournisseur
         purchase_obj = self.env['purchase.order']
@@ -658,6 +659,7 @@ class ReplenPlan(models.Model):
                     'order_id': purchase_order.id,
                     'product_id': product['product_id'],
                     'product_qty': product['quantity'],
+                    'price_unit': product['price_unit'],
                     'name': self.env['product.product'].browse(product['product_id']).name,
                     'date_planned': fields.Date.today(),
                     'product_uom': self.env['product.product'].browse(product['product_id']).uom_po_id.id,
@@ -740,10 +742,10 @@ class ReplenPlan(models.Model):
         """Méthode appelée lors du clic sur un plan dans la vue liste"""
         return self.open_form()
 
-    @api.depends('component_ids.total_price')
+    @api.depends('component_ids.forecast_consumption')
     def _compute_total_amount(self):
         for plan in self:
-            plan.total_amount = sum(plan.component_ids.mapped('total_price'))
+            plan.total_amount = sum(plan.component_ids.mapped('forecast_consumption'))
 
     def _show_welcome_message(self):
         """Affiche un message de bienvenue en fonction de l'état du plan"""

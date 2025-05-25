@@ -1,4 +1,9 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_replen_plan,replen.plan,model_replen_plan,base.group_user,1,1,1,1
+access_replen_plan_line,replen.plan.line,model_replen_plan_line,base.group_user,1,1,1,1
+access_replen_plan_component,replen.plan.component,model_replen_plan_component,base.group_user,1,1,1,1
+access_replen_plan_supplier_line,replen.plan.supplier.line,model_replen_plan_supplier_line,base.group_user,1,1,1,1
+access_replen_plan_component_supplier_display,replen.plan.component.supplier.display,model_replen_plan_component_supplier_display,base.group_user,1,0,0,0
 access_replen_plan_user,replen.plan.user,model_replen_plan,stock.group_stock_user,1,1,1,1
 access_replen_plan_manager,replen.plan.manager,model_replen_plan,stock.group_stock_manager,1,1,1,1
 access_replen_plan_line_user,replen.plan.line.user,model_replen_plan_line,stock.group_stock_user,1,1,1,1

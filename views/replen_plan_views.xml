@@ -291,29 +291,17 @@
                             </group>
                         </group>
                         <notebook>
-                            <page string="Sélection des fournisseurs" name="suppliers">
-                                <field name="component_ids" attrs="{'readonly': [('state', '=', 'done')]}">
-                                    <tree editable="bottom" create="false">
-                                        <field name="product_id" readonly="1"/>
-                                        <field name="quantity_to_supply" readonly="1"/>
-                                        <field name="available_supplier_ids" invisible="1"/>
-                                        <field name="supplier_id" 
-                                               options="{'no_create': True, 'no_open': True}"
-                                               force_save="1"/>
-                                               <button string="Sélectionner un fournisseur" 
-                                                type="object" 
-                                                name="dummy_button"
-                                                class="text-muted"
-                                                attrs="{'invisible': [('supplier_id', '!=', False)]}"
-                                                readonly="1"/>
-                                        <field name="total_price" readonly="1" sum="Total"/>
-                                        <field name="delivery_lead_time" readonly="1"/>
-                                        
+                            <page string="Fournisseurs disponibles" name="suppliers">
+                                <field name="component_supplier_ids" readonly="1">
+                                    <tree>
+                                        <field name="product_id"/>
+                                        <field name="supplier_id"/>
+                                        <field name="quantity_to_supply"/>
+                                        <field name="price"/>
+                                        <field name="total_price"/>
+                                        <field name="delivery_lead_time"/>
                                     </tree>
                                 </field>
-                                <group class="oe_subtotal_footer">
-                                    <field name="total_amount" readonly="1" string="Total général"/>
-                                </group>
                             </page>
                         </notebook>
                     </sheet>
@@ -382,18 +370,17 @@
                                     <field name="total_amount" readonly="1" string="Total général"/>
                                 </group>
                             </page>
-                            <page string="Fournisseurs" name="suppliers">
-                                <field name="component_ids" readonly="1">
+                            <page string="Fournisseurs disponibles" name="suppliers">
+                                <field name="component_supplier_ids" readonly="1">
                                     <tree>
                                         <field name="product_id"/>
                                         <field name="supplier_id"/>
-                                        <field name="total_price" sum="Total"/>
+                                        <field name="quantity_to_supply"/>
+                                        <field name="price"/>
+                                        <field name="total_price"/>
                                         <field name="delivery_lead_time"/>
                                     </tree>
                                 </field>
-                                <group class="oe_subtotal_footer">
-                                    <field name="total_amount" readonly="1" string="Total général"/>
-                                </group>
                             </page>
                         </notebook>
                     </sheet>
