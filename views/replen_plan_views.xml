@@ -183,13 +183,15 @@
                                 <field name="component_ids" readonly="1">
                                     <tree editable="bottom">
                                         <field name="product_id" readonly="1"/>
-                                        <field name="product_id" string="Nom complet" readonly="1" widget="many2one_tags"/>
                                         <field name="forecast_consumption" readonly="1"/>
                                         <field name="current_stock" readonly="1"/>
                                         <field name="safety_stock" readonly="1"/>
                                         <field name="quantity_to_supply" decoration-danger="quantity_to_supply > 0"/>
                                     </tree>
                                 </field>
+                                <group class="oe_subtotal_footer">
+                                    <field name="total_amount" readonly="1" string="Total général"/>
+                                </group>
                             </page>
                         </notebook>
                     </sheet>
@@ -359,11 +361,11 @@
                             <page string="Composants" name="components">
                                 <field name="component_ids" readonly="1">
                                     <tree>
+                                    <field name="product_id"/>
                                         <field name="forecast_consumption"/>
                                         <field name="current_stock"/>
                                         <field name="safety_stock"/>
                                         <field name="quantity_to_supply" decoration-danger="quantity_to_supply > 0"/>
-                                        
                                     </tree>
                                 </field>
                                 <group class="oe_subtotal_footer">
