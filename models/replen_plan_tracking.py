@@ -14,14 +14,12 @@ class ReplenPlanTracking(models.Model):
     period = fields.Char(string='Période concernée', related='replen_plan_id.period', store=True)
     validation_date = fields.Datetime(string='Date de validation', related='replen_plan_id.validation_date', store=True)
     state = fields.Selection([
-        ('validated', 'Validé'),
         ('in_progress', 'En cours'),
         ('done', 'Terminé')
-    ], string='État', default='validated', tracking=True)
+    ], string='État', default='in_progress', tracking=True)
     component_line_ids = fields.One2many('replen.plan.tracking.line', 'tracking_id', string='Composants')
 
     def action_view_details(self):
-        self.state = 'in_progress'
         return {
             'name': f'Suivi du plan {self.name}',
             'type': 'ir.actions.act_window',
@@ -36,6 +34,7 @@ class ReplenPlanTracking(models.Model):
         tracking = self.create({
             'replen_plan_id': replen_plan.id,
             'name': replen_plan.name,
+            'state': 'in_progress',  # État initial : En cours
         })
         
         # Créer un dictionnaire pour associer les produits aux lignes de commande par fournisseur

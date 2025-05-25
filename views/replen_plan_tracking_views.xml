@@ -73,7 +73,6 @@
                 <field name="name"/>
                 <field name="period"/>
                 <separator/>
-                <filter string="Validés" name="validated" domain="[('state','=','validated')]"/>
                 <filter string="En cours" name="in_progress" domain="[('state','=','in_progress')]"/>
                 <filter string="Terminés" name="done" domain="[('state','=','done')]"/>
                 <group expand="0" string="Group By">
@@ -89,7 +88,7 @@
         <field name="name">Suivi des plans</field>
         <field name="res_model">replen.plan.tracking</field>
         <field name="view_mode">tree,form</field>
-        <field name="context">{'search_default_validated': 1}</field>
+        <field name="context">{'search_default_in_progress': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 Aucun plan de réapprovisionnement à suivre pour le moment
