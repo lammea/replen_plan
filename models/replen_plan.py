@@ -168,6 +168,9 @@ class ReplenPlan(models.Model):
         ('done', 'Validé')
     ], string='État', default='draft', required=True)
 
+    validation_date = fields.Datetime('Date de validation', readonly=True, copy=False)
+    period = fields.Char(string='Période', compute='_compute_period', store=True)
+
     period_type = fields.Selection([
         ('monthly', 'Mensuelle'),
         ('quarterly', 'Trimestrielle'),
@@ -672,6 +675,8 @@ class ReplenPlan(models.Model):
         # Grouper les composants par fournisseur
         supplier_products = {}
         rfq_count = 0
+        components_with_rfq = []  # Liste pour suivre les composants avec demande de prix
+
         for component in self.component_ids:
             for supplier_line in component.supplier_line_ids:
                 if supplier_line.supplier_id not in supplier_products:
@@ -682,9 +687,13 @@ class ReplenPlan(models.Model):
                     'quantity': component.quantity_to_supply,
                     'price_unit': supplier_line.price,
                 })
+                if component not in components_with_rfq:
+                    components_with_rfq.append(component)
 
         # Créer une demande de prix pour chaque fournisseur
         purchase_obj = self.env['purchase.order']
+        purchase_orders = []  # Liste pour stocker les bons de commande créés
+
         for supplier, products in supplier_products.items():
             # Créer l'entête de la demande de prix
             po_vals = {
@@ -693,6 +702,7 @@ class ReplenPlan(models.Model):
                 'origin': f'Réappro {self.name}',
             }
             purchase_order = purchase_obj.create(po_vals)
+            purchase_orders.append(purchase_order)
 
             # Ajouter les lignes de produits
             for product in products:
@@ -706,8 +716,14 @@ class ReplenPlan(models.Model):
                     'product_uom': self.env['product.product'].browse(product['product_id']).uom_po_id.id,
                 })
 
-        # Passage à l'état validé
-        self.write({'state': 'done'})
+        # Créer le suivi du plan avec les composants qui ont des demandes de prix
+        tracking = self.env['replen.plan.tracking'].create_from_replen_plan(self, components_with_rfq, purchase_orders)
+
+        # Passage à l'état validé et mise à jour de la date de validation
+        self.write({
+            'state': 'done',
+            'validation_date': fields.Datetime.now()
+        })
 
         # Message de notification avec redirection
         message = _('{} demande(s) de prix ont été générée(s) avec succès.').format(rfq_count)
@@ -833,3 +849,58 @@ class ReplenPlan(models.Model):
             ('type', '=', 'product'),                  # Produits stockables uniquement
             ('active', '=', True)                      # Produits actifs uniquement
         ]
+
+    @api.depends('period_type', 'sub_period', 'sub_period_monthly', 'sub_period_quarterly', 
+                'sub_period_biannual', 'sub_period_annual')
+    def _compute_period(self):
+        months_fr = {
+            '01': 'Janvier', '02': 'Février', '03': 'Mars',
+            '04': 'Avril', '05': 'Mai', '06': 'Juin',
+            '07': 'Juillet', '08': 'Août', '09': 'Septembre',
+            '10': 'Octobre', '11': 'Novembre', '12': 'Décembre'
+        }
+        for plan in self:
+            if not plan.period_type or not plan.sub_period:
+                plan.period = False
+                continue
+
+            if plan.period_type == 'monthly':
+                if plan.sub_period in months_fr:
+                    year = fields.Date.today().year
+                    if fields.Date.today().month > int(plan.sub_period):
+                        year += 1
+                    plan.period = f"{months_fr[plan.sub_period]} {year}"
+                else:
+                    plan.period = False
+            elif plan.period_type == 'quarterly':
+                quarters = {
+                    'Q1': '1er Trimestre',
+                    'Q2': '2ème Trimestre',
+                    'Q3': '3ème Trimestre',
+                    'Q4': '4ème Trimestre'
+                }
+                if plan.sub_period in quarters:
+                    year = fields.Date.today().year
+                    quarter_month = {'Q1': 1, 'Q2': 4, 'Q3': 7, 'Q4': 10}
+                    if fields.Date.today().month > quarter_month[plan.sub_period]:
+                        year += 1
+                    plan.period = f"{quarters[plan.sub_period]} {year}"
+                else:
+                    plan.period = False
+            elif plan.period_type == 'biannual':
+                semesters = {
+                    'S1': '1er Semestre',
+                    'S2': '2ème Semestre'
+                }
+                if plan.sub_period in semesters:
+                    year = fields.Date.today().year
+                    semester_month = {'S1': 1, 'S2': 7}
+                    if fields.Date.today().month > semester_month[plan.sub_period]:
+                        year += 1
+                    plan.period = f"{semesters[plan.sub_period]} {year}"
+                else:
+                    plan.period = False
+            elif plan.period_type == 'annual':
+                plan.period = f"Année {plan.sub_period}"
+            else:
+                plan.period = False

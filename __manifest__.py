@@ -8,6 +8,7 @@
         - Planifier les besoins en composants
         - Gérer les prévisions
         - Générer les demandes de prix
+        - Suivre l'état d'avancement des plans
     """,
     'author': 'Votre Société',
     'website': 'https://www.votresociete.com',
@@ -18,6 +19,7 @@
         'views/replen_plan_views.xml',
         'views/menu_views.xml',
         'views/replen_plan_confirm_views.xml',
+        'views/replen_plan_tracking_views.xml',
     ],
     'installable': True,
     'application': True,
