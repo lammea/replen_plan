@@ -126,6 +126,46 @@
             </field>
         </record>
 
+        <!-- Kanban View -->
+        <record id="replen_plan_view_kanban" model="ir.ui.view">
+            <field name="name">replen.plan.kanban</field>
+            <field name="model">replen.plan</field>
+            <field name="arch" type="xml">
+                <kanban default_group_by="state" class="o_kanban_small_column">
+                    <field name="name"/>
+                    <field name="period_type"/>
+                    <field name="date_start"/>
+                    <field name="date_end"/>
+                    <field name="state"/>
+                    <field name="product_count"/>
+                    <templates>
+                        <t t-name="kanban-box">
+                            <div class="oe_kanban_global_click">
+                                <div class="oe_kanban_details">
+                                    <strong class="o_kanban_record_title">
+                                        <field name="name"/>
+                                    </strong>
+                                    <div class="o_kanban_record_subtitle">
+                                        <field name="period_type"/>
+                                    </div>
+                                    <div class="o_kanban_record_bottom">
+                                        <div class="oe_kanban_bottom_left">
+                                            <span>Du <field name="date_start"/> au <field name="date_end"/></span>
+                                        </div>
+                                        <div class="oe_kanban_bottom_right">
+                                            <span class="badge badge-info">
+                                                <i class="fa fa-cubes"/> <field name="product_count"/> produits
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>
+            </field>
+        </record>
+
         <!-- Vue Form pour la saisie des prévisions -->
         <record id="replen_plan_forecast_form" model="ir.ui.view">
             <field name="name">replen.plan.forecast.form</field>
