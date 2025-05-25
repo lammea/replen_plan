@@ -226,6 +226,7 @@
                                         <field name="forecast_consumption" readonly="1"/>
                                         <field name="current_stock" readonly="1"/>
                                         <field name="safety_stock" readonly="1"/>
+                                        <field name="stock_state" decoration-success="stock_state == 'available'" decoration-warning="stock_state == 'warning'" decoration-danger="stock_state == 'urgent'"/>
                                         <field name="quantity_to_supply" decoration-danger="quantity_to_supply > 0"/>
                                     </tree>
                                 </field>
@@ -284,6 +285,7 @@
                                         <field name="forecast_consumption" readonly="1"/>
                                         <field name="current_stock" readonly="1"/>
                                         <field name="safety_stock" readonly="1"/>
+                                        <field name="stock_state" decoration-success="stock_state == 'available'" decoration-warning="stock_state == 'warning'" decoration-danger="stock_state == 'urgent'"/>
                                         <field name="quantity_to_supply" decoration-danger="quantity_to_supply > 0"/>
                                         <button name="action_reset_quantity_to_supply" 
                                                 string="Réinitialiser" 
@@ -431,10 +433,11 @@
                             <page string="Composants" name="components">
                                 <field name="component_ids" readonly="1">
                                     <tree>
-                                    <field name="product_id"/>
+                                        <field name="product_id"/>
                                         <field name="forecast_consumption"/>
                                         <field name="current_stock"/>
                                         <field name="safety_stock"/>
+                                        <field name="stock_state" decoration-success="stock_state == 'available'" decoration-warning="stock_state == 'warning'" decoration-danger="stock_state == 'urgent'"/>
                                         <field name="quantity_to_supply" decoration-danger="quantity_to_supply > 0"/>
                                     </tree>
                                 </field>

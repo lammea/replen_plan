@@ -55,6 +55,11 @@ class ReplenPlanComponent(models.Model):
     forecast_consumption = fields.Float('Consommation prévisionnelle', digits='Product Unit of Measure')
     current_stock = fields.Float('Stock actuel', digits='Product Unit of Measure')
     safety_stock = fields.Float('Stock de sécurité', digits='Product Unit of Measure')
+    stock_state = fields.Selection([
+        ('available', 'Disponible'),
+        ('warning', 'À surveiller'),
+        ('urgent', 'Urgence')
+    ], string='État', compute='_compute_stock_state', store=True)
     quantity_to_supply = fields.Float(
         'Quantité à réapprovisionner',
         compute='_compute_quantity_to_supply',
@@ -72,6 +77,17 @@ class ReplenPlanComponent(models.Model):
         help="Quantité calculée automatiquement selon la formule standard"
     )
     supplier_line_ids = fields.One2many('replen.plan.supplier.line', 'component_id', string='Lignes fournisseurs')
+
+    @api.depends('current_stock', 'forecast_consumption', 'safety_stock')
+    def _compute_stock_state(self):
+        for record in self:
+            difference = record.current_stock - record.forecast_consumption
+            if difference > record.safety_stock:
+                record.stock_state = 'available'
+            elif difference == record.safety_stock:
+                record.stock_state = 'warning'
+            else:
+                record.stock_state = 'urgent'
 
     @api.depends('forecast_consumption', 'current_stock', 'safety_stock')
     def _compute_quantity_to_supply(self):
