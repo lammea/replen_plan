@@ -46,7 +46,7 @@
                                     <field name="vendor_id" readonly="1"/>
                                     <field name="lead_time" readonly="1"/>
                                     <field name="expected_date" readonly="1"/>
-                                    <field name="unit_price" readonly="1"/>
+                                    <field name="total_price" readonly="1"/>
                                     <field name="quantity_to_supply" readonly="1"/>
                                     <field name="quantity_received" readonly="1"/>
                                     <field name="state" readonly="1"/>

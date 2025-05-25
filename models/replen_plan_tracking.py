@@ -1,5 +1,8 @@
 from odoo import models, fields, api
 from datetime import datetime, timedelta
+import logging
+
+_logger = logging.getLogger(__name__)
 
 class ReplenPlanTracking(models.Model):
     _name = 'replen.plan.tracking'
@@ -35,38 +38,51 @@ class ReplenPlanTracking(models.Model):
             'name': replen_plan.name,
         })
         
-        # Créer un dictionnaire pour associer les produits aux lignes de commande
-        product_po_lines = {}
+        # Créer un dictionnaire pour associer les produits aux lignes de commande par fournisseur
+        product_vendor_po_lines = {}
         for po in purchase_orders:
             for line in po.order_line:
-                if line.product_id.id not in product_po_lines:
-                    product_po_lines[line.product_id.id] = []
-                product_po_lines[line.product_id.id].append(line)
+                key = (line.product_id.id, line.partner_id.id)
+                if key not in product_vendor_po_lines:
+                    product_vendor_po_lines[key] = []
+                product_vendor_po_lines[key].append(line)
 
-        # Créer les lignes de suivi uniquement pour les composants avec des demandes de prix
+        # Créer les lignes de suivi pour chaque combinaison composant-fournisseur
         for component in components_with_rfq:
-            po_lines = product_po_lines.get(component.product_id.id, [])
-            if po_lines:
-                # Prendre le premier fournisseur pour les informations initiales
-                first_po_line = po_lines[0]
-                
-                # Récupérer le délai de livraison depuis les lignes fournisseur du composant
-                supplier_line = component.supplier_line_ids.filtered(
-                    lambda l: l.supplier_id == first_po_line.partner_id
-                )
-                
-                lead_time = supplier_line.delivery_lead_time if supplier_line else 0
-                
-                self.env['replen.plan.tracking.line'].create({
-                    'tracking_id': tracking.id,
-                    'product_id': component.product_id.id,
-                    'vendor_id': first_po_line.partner_id.id,
-                    'lead_time': lead_time,
-                    'unit_price': first_po_line.price_unit,
-                    'quantity_to_supply': component.quantity_to_supply,
-                    'quantity_received': 0.0,
-                    'purchase_order_line_ids': [(6, 0, [line.id for line in po_lines])],
-                })
+            # Trouver toutes les combinaisons produit-fournisseur pour ce composant
+            for key, po_lines in product_vendor_po_lines.items():
+                product_id, vendor_id = key
+                if product_id == component.product_id.id:
+                    # Récupérer le délai de livraison depuis les lignes fournisseur du composant
+                    supplier_line = component.supplier_line_ids.filtered(
+                        lambda l: l.supplier_id.id == vendor_id
+                    )
+                    
+                    lead_time = supplier_line.delivery_lead_time if supplier_line else 0
+                    first_po_line = po_lines[0]
+                    
+                    # Calculer la quantité totale commandée pour ce fournisseur
+                    quantity_ordered = sum(line.product_qty for line in po_lines)
+                    
+                    # Debug logs
+                    _logger.info(f"Calcul du prix total pour le produit {component.product_id.name}:")
+                    _logger.info(f"Prix unitaire: {first_po_line.price_unit}")
+                    _logger.info(f"Quantité commandée: {quantity_ordered}")
+                    
+                    # Calculer le prix total
+                    total_price = float(first_po_line.price_unit or 0.0) * float(quantity_ordered or 0.0)
+                    _logger.info(f"Prix total calculé: {total_price}")
+                    
+                    self.env['replen.plan.tracking.line'].create({
+                        'tracking_id': tracking.id,
+                        'product_id': component.product_id.id,
+                        'vendor_id': vendor_id,
+                        'lead_time': lead_time,
+                        'total_price': total_price,
+                        'quantity_to_supply': quantity_ordered,
+                        'quantity_received': 0.0,
+                        'purchase_order_line_ids': [(6, 0, [line.id for line in po_lines])],
+                    })
         
         return tracking
 
@@ -85,7 +101,7 @@ class ReplenPlanTrackingLine(models.Model):
     vendor_id = fields.Many2one('res.partner', string='Fournisseur')
     lead_time = fields.Integer(string='Délai (jours)')
     expected_date = fields.Date(string='Date de réception prévue', compute='_compute_expected_date', store=True)
-    unit_price = fields.Float(string='Prix unitaire', digits='Product Price')
+    total_price = fields.Float(string='Prix total', digits='Product Price')
     quantity_to_supply = fields.Float(string='Quantité à réapprovisionner', digits='Product Unit of Measure')
     quantity_received = fields.Float(string='Quantité reçue', digits='Product Unit of Measure')
     purchase_order_line_ids = fields.Many2many('purchase.order.line', string='Lignes de commande')
@@ -121,6 +137,61 @@ class ReplenPlanTrackingLine(models.Model):
             else:
                 line.expected_date = False
 
+    @api.model
+    def create_from_replen_plan(self, replen_plan, components_with_rfq, purchase_orders):
+        tracking = self.create({
+            'replen_plan_id': replen_plan.id,
+            'name': replen_plan.name,
+        })
+        
+        # Créer un dictionnaire pour associer les produits aux lignes de commande par fournisseur
+        product_vendor_po_lines = {}
+        for po in purchase_orders:
+            for line in po.order_line:
+                key = (line.product_id.id, line.partner_id.id)
+                if key not in product_vendor_po_lines:
+                    product_vendor_po_lines[key] = []
+                product_vendor_po_lines[key].append(line)
+
+        # Créer les lignes de suivi pour chaque combinaison composant-fournisseur
+        for component in components_with_rfq:
+            # Trouver toutes les combinaisons produit-fournisseur pour ce composant
+            for key, po_lines in product_vendor_po_lines.items():
+                product_id, vendor_id = key
+                if product_id == component.product_id.id:
+                    # Récupérer le délai de livraison depuis les lignes fournisseur du composant
+                    supplier_line = component.supplier_line_ids.filtered(
+                        lambda l: l.supplier_id.id == vendor_id
+                    )
+                    
+                    lead_time = supplier_line.delivery_lead_time if supplier_line else 0
+                    first_po_line = po_lines[0]
+                    
+                    # Calculer la quantité totale commandée pour ce fournisseur
+                    quantity_ordered = sum(line.product_qty for line in po_lines)
+                    
+                    # Debug logs
+                    _logger.info(f"Calcul du prix total pour le produit {component.product_id.name}:")
+                    _logger.info(f"Prix unitaire: {first_po_line.price_unit}")
+                    _logger.info(f"Quantité commandée: {quantity_ordered}")
+                    
+                    # Calculer le prix total
+                    total_price = float(first_po_line.price_unit or 0.0) * float(quantity_ordered or 0.0)
+                    _logger.info(f"Prix total calculé: {total_price}")
+                    
+                    self.env['replen.plan.tracking.line'].create({
+                        'tracking_id': tracking.id,
+                        'product_id': component.product_id.id,
+                        'vendor_id': vendor_id,
+                        'lead_time': lead_time,
+                        'total_price': total_price,
+                        'quantity_to_supply': quantity_ordered,
+                        'quantity_received': 0.0,
+                        'purchase_order_line_ids': [(6, 0, [line.id for line in po_lines])],
+                    })
+        
+        return tracking
+
     def update_from_purchase_order(self, purchase_order_line):
         self.ensure_one()
         
@@ -138,10 +209,13 @@ class ReplenPlanTrackingLine(models.Model):
         
         lead_time = supplier_line.delivery_lead_time if supplier_line else 0
         
+        # Calculer le nouveau prix total
+        total_price = purchase_order_line.price_unit * self.quantity_to_supply
+        
         self.write({
             'vendor_id': purchase_order_line.partner_id.id,
             'lead_time': lead_time,
-            'unit_price': purchase_order_line.price_unit,
+            'total_price': total_price,
             'purchase_order_line_ids': [(4, purchase_order_line.id)],
         })
 
