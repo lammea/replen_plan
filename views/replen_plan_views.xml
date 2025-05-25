@@ -169,6 +169,13 @@
                         </group>
                         <notebook>
                             <page string="Prévisions" name="forecasts">
+                                <div class="text-right">
+                                    <button name="action_mass_forecast" 
+                                            string="Saisie de masse" 
+                                            type="object" 
+                                            class="oe_highlight"
+                                            states="forecast"/>
+                                </div>
                                 <field name="line_ids" attrs="{'readonly': [('state', '!=', 'forecast')]}">
                                     <tree editable="bottom" create="0" delete="0">
                                         <field name="product_id" readonly="1"/>
@@ -401,6 +408,50 @@
                         <field name="message_follower_ids" widget="mail_followers"/>
                         <field name="message_ids" widget="mail_thread"/>
                     </div>
+                </form>
+            </field>
+        </record>
+
+        <!-- Vue de saisie de masse pour les lignes de prévision -->
+        <record id="replen_plan_line_mass_edit_view" model="ir.ui.view">
+            <field name="name">replen.plan.line.mass.edit</field>
+            <field name="model">replen.plan.line</field>
+            <field name="arch" type="xml">
+                <tree editable="bottom" create="0" delete="0">
+                    <field name="product_id" readonly="1"/>
+                    <field name="product_id" string="Nom complet" readonly="1" widget="many2one_tags"/>
+                    <field name="date" readonly="1"/>
+                    <field name="historic_qty" readonly="1"/>
+                    <field name="forecast_qty"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- Vue du wizard de saisie de masse -->
+        <record id="view_replen_plan_mass_forecast_wizard" model="ir.ui.view">
+            <field name="name">replen.plan.mass.forecast.wizard.form</field>
+            <field name="model">replen.plan.mass.forecast.wizard</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="forecast_qty" string="Quantité prévisionnelle à appliquer"/>
+                        </group>
+                        <field name="line_ids">
+                            <tree editable="bottom">
+                                <field name="selected"/>
+                                <field name="product_id" readonly="1"/>
+                                <field name="product_id" string="Nom complet" readonly="1" widget="many2one_tags"/>
+                                <field name="date" readonly="1"/>
+                                <field name="historic_qty" readonly="1"/>
+                                <field name="forecast_qty" readonly="1"/>
+                            </tree>
+                        </field>
+                    </sheet>
+                    <footer>
+                        <button name="action_apply" string="Appliquer" type="object" class="btn-primary"/>
+                        <button string="Annuler" class="btn-secondary" special="cancel"/>
+                    </footer>
                 </form>
             </field>
         </record>

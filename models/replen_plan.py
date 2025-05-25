@@ -13,6 +13,7 @@ class ReplenPlanLine(models.Model):
     date = fields.Date('Date', required=True)
     historic_qty = fields.Float('Historique des ventes', readonly=True)
     forecast_qty = fields.Float('Prévision')
+    selected = fields.Boolean('Sélectionné', default=False, store=True)
 
 class ReplenPlanComponent(models.Model):
     _name = 'replen.plan.component'
@@ -790,3 +791,15 @@ class ReplenPlan(models.Model):
             ('type', '=', 'product'),                  # Produits stockables uniquement
             ('active', '=', True)                      # Produits actifs uniquement
         ]
+
+    def action_mass_forecast(self):
+        """Ouvre le wizard de saisie de masse pour les prévisions"""
+        self.ensure_one()
+        return {
+            'name': _('Saisie de masse des prévisions'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'replen.plan.mass.forecast.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'active_id': self.id},
+        }

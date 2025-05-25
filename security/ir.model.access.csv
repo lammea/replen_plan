@@ -5,3 +5,7 @@ access_replen_plan_line_user,replen.plan.line.user,model_replen_plan_line,stock.
 access_replen_plan_line_manager,replen.plan.line.manager,model_replen_plan_line,stock.group_stock_manager,1,1,1,1
 access_replen_plan_component_user,replen.plan.component.user,model_replen_plan_component,stock.group_stock_user,1,1,1,1
 access_replen_plan_component_manager,replen.plan.component.manager,model_replen_plan_component,stock.group_stock_manager,1,1,1,1
+access_replen_plan,replen.plan,model_replen_plan,base.group_user,1,1,1,1
+access_replen_plan_line,replen.plan.line,model_replen_plan_line,base.group_user,1,1,1,1
+access_replen_plan_component,replen.plan.component,model_replen_plan_component,base.group_user,1,1,1,1
+access_replen_plan_mass_forecast_wizard,replen.plan.mass.forecast.wizard,model_replen_plan_mass_forecast_wizard,base.group_user,1,1,1,1

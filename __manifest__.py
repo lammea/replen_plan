@@ -14,6 +14,7 @@
     'depends': ['base', 'stock', 'purchase', 'mrp', 'sale', 'mail'],
     'data': [
         'security/ir.model.access.csv',
+        'wizards/mass_forecast_views.xml',
         'data/ir_sequence_data.xml',
         'views/replen_plan_views.xml',
         'views/menu_views.xml',
