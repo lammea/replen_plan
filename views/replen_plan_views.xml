@@ -325,6 +325,36 @@
                         <field name="state" widget="statusbar" statusbar_visible="draft,forecast,plan,report,done"/>
                     </header>
                     <sheet>
+                        <div class="ribbon ribbon-top-right">
+                            <span class="bg-success">VALIDÉ</span>
+                        </div>
+                        <style>
+                            .ribbon {
+                                width: 150px;
+                                height: 150px;
+                                position: absolute;
+                                right: 0;
+                                top: 23px;
+                                overflow: hidden;
+                                z-index: 1;
+                            }
+                            .ribbon span {
+                                position: absolute;
+                                display: block;
+                                width: 225px;
+                                padding: 8px 0;
+                                background-color: #28a745;
+                                box-shadow: 0 5px 10px rgba(0,0,0,.1);
+                                color: #fff;
+                                font: 700 16px/1 'Lato', sans-serif;
+                                text-shadow: 0 1px 1px rgba(0,0,0,.2);
+                                text-transform: uppercase;
+                                text-align: center;
+                                right: -55px;
+                                top: 45px;
+                                transform: rotate(45deg);
+                            }
+                        </style>
                         <div class="oe_title">
                             <h1>
                                 <field name="name" readonly="1"/>
