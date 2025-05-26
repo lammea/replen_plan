@@ -108,14 +108,17 @@ class ReplenPlanTrackingLine(models.Model):
         ('waiting', 'En attente'),
         ('partial', 'En cours'),
         ('done', 'Terminé'),
-        ('late', 'En retard')
+        ('late', 'En retard'),
+        ('rejected', 'Rejeté')
     ], string='État', compute='_compute_state', store=True)
 
-    @api.depends('quantity_to_supply', 'quantity_received', 'expected_date')
+    @api.depends('quantity_to_supply', 'quantity_received', 'expected_date', 'purchase_order_line_ids')
     def _compute_state(self):
         today = fields.Date.today()
         for line in self:
-            if line.quantity_received == 0:
+            if not line.purchase_order_line_ids:
+                line.state = 'rejected'
+            elif line.quantity_received == 0:
                 if line.expected_date and line.expected_date < today:
                     line.state = 'late'
                 else:
@@ -227,19 +230,47 @@ class ReplenPlanTrackingLine(models.Model):
             line.quantity_received = received_qty
             line.tracking_id.check_completion()
 
+    def update_from_purchase_order_line(self, purchase_order_line):
+        """Met à jour les valeurs de la ligne de suivi en fonction des modifications de la ligne de demande de prix"""
+        self.ensure_one()
+        
+        # Calculer la nouvelle quantité totale à partir de toutes les lignes de commande
+        quantity_to_supply = sum(line.product_qty for line in self.purchase_order_line_ids)
+        
+        # Calculer le nouveau prix total
+        total_price = sum(line.price_unit * line.product_qty for line in self.purchase_order_line_ids)
+        
+        # Mettre à jour les valeurs
+        self.write({
+            'quantity_to_supply': quantity_to_supply,
+            'total_price': total_price,
+        })
+
+    def reset_tracking_line(self):
+        """Réinitialise les valeurs de la ligne de suivi après suppression de la ligne de commande"""
+        self.ensure_one()
+        self.write({
+            'vendor_id': False,
+            'lead_time': 0,
+            'total_price': 0,
+            'quantity_to_supply': 0,
+            'quantity_received': 0,
+            'expected_date': False,
+        })
+
 class PurchaseOrder(models.Model):
     _inherit = 'purchase.order'
 
     def button_confirm(self):
         res = super(PurchaseOrder, self).button_confirm()
         for order in self:
-            for line in order.order_line:
-                tracking_lines = self.env['replen.plan.tracking.line'].search([
-                    ('product_id', '=', line.product_id.id),
-                    ('state', 'in', ['waiting', 'partial', 'late'])
-                ])
-                for tracking_line in tracking_lines:
-                    tracking_line.update_from_purchase_order(line)
+            tracking_lines = self.env['replen.plan.tracking.line'].search([
+                ('purchase_order_line_ids', 'in', order.order_line.ids)
+            ])
+            for tracking_line in tracking_lines:
+                tracking_line.update_from_purchase_order_line(order.order_line.filtered(
+                    lambda l: l.id in tracking_line.purchase_order_line_ids.ids
+                )[0])
         return res
 
 class StockPicking(models.Model):
@@ -253,4 +284,48 @@ class StockPicking(models.Model):
                     ('purchase_order_line_ids.move_ids.picking_id', '=', picking.id)
                 ])
                 tracking_lines.update_received_quantity()
+        return res
+
+class PurchaseOrderLine(models.Model):
+    _inherit = 'purchase.order.line'
+
+    def unlink(self):
+        """Surcharge de la méthode unlink pour mettre à jour les lignes de suivi lors de la suppression"""
+        # Récupérer les lignes de suivi avant la suppression
+        tracking_lines = self.env['replen.plan.tracking.line'].search([
+            ('purchase_order_line_ids', 'in', self.ids)
+        ])
+        
+        # Supprimer la ligne de commande
+        res = super(PurchaseOrderLine, self).unlink()
+        
+        # Mettre à jour les lignes de suivi
+        for tracking_line in tracking_lines:
+            remaining_lines = tracking_line.purchase_order_line_ids.filtered(lambda l: l.id not in self.ids)
+            if not remaining_lines:
+                # Si plus aucune ligne de commande, réinitialiser la ligne de suivi
+                tracking_line.reset_tracking_line()
+            else:
+                # Recalculer avec les lignes restantes
+                quantity_to_supply = sum(line.product_qty for line in remaining_lines)
+                total_price = sum(line.price_unit * line.product_qty for line in remaining_lines)
+                tracking_line.write({
+                    'quantity_to_supply': quantity_to_supply,
+                    'total_price': total_price,
+                })
+        
+        return res
+
+    def write(self, vals):
+        """Surcharge de la méthode write pour mettre à jour les lignes de suivi"""
+        res = super(PurchaseOrderLine, self).write(vals)
+        
+        # Si le prix ou la quantité ont été modifiés
+        if 'price_unit' in vals or 'product_qty' in vals:
+            tracking_lines = self.env['replen.plan.tracking.line'].search([
+                ('purchase_order_line_ids', 'in', self.ids)
+            ])
+            for tracking_line in tracking_lines:
+                tracking_line.update_from_purchase_order_line(self)
+        
         return res 
