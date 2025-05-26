@@ -97,16 +97,17 @@ class ReplenPlanTracking(models.Model):
 class ReplenPlanTrackingLine(models.Model):
     _name = 'replen.plan.tracking.line'
     _description = 'Ligne de suivi des composants'
+    _inherit = ['mail.thread', 'mail.activity.mixin']
 
     tracking_id = fields.Many2one('replen.plan.tracking', string='Suivi', required=True, ondelete='cascade')
     product_id = fields.Many2one('product.product', string='Composant', required=True)
-    quantity_to_supply = fields.Float(string='Quantité à réapprovisionner', digits='Product Unit of Measure')
-    vendor_id = fields.Many2one('res.partner', string='Fournisseur')
-    lead_time = fields.Integer(string='Délai (jours)')
-    expected_date = fields.Date(string='Date de réception prévue', compute='_compute_expected_date', store=True, readonly=False)
-    total_price = fields.Float(string='Prix total', digits='Product Price')
+    quantity_to_supply = fields.Float(string='Quantité à réapprovisionner', digits='Product Unit of Measure', tracking=True)
+    vendor_id = fields.Many2one('res.partner', string='Fournisseur', tracking=True)
+    lead_time = fields.Integer(string='Délai (jours)', tracking=True)
+    expected_date = fields.Date(string='Date de réception prévue', compute='_compute_expected_date', store=True, readonly=False, tracking=True)
+    total_price = fields.Float(string='Prix total', digits='Product Price', tracking=True)
     
-    quantity_received = fields.Float(string='Quantité reçue', digits='Product Unit of Measure')
+    quantity_received = fields.Float(string='Quantité reçue', digits='Product Unit of Measure', tracking=True)
     quantity_pending = fields.Float(string='Quantité en attente', compute='_compute_quantity_pending', store=True, digits='Product Unit of Measure')
     purchase_order_line_ids = fields.Many2many('purchase.order.line', string='Lignes de commande')
     state = fields.Selection([
@@ -115,15 +116,15 @@ class ReplenPlanTrackingLine(models.Model):
         ('done', 'Terminé'),
         ('late', 'En retard'),
         ('rejected', 'Rejeté')
-    ], string='État', compute='_compute_state', store=True)
+    ], string='État', compute='_compute_state', store=True, tracking=True)
 
     @api.depends('quantity_to_supply', 'quantity_received', 'expected_date', 'purchase_order_line_ids', 'purchase_order_line_ids.order_id.state')
     def _compute_state(self):
         today = fields.Date.today()
         for line in self:
+            old_state = line.state
             if not line.purchase_order_line_ids:
                 line.state = 'rejected'
-            # Vérifier si toutes les commandes liées sont confirmées
             elif all(pol.order_id.state in ['purchase', 'done'] for pol in line.purchase_order_line_ids):
                 if line.quantity_received > 0:
                     if line.quantity_received < line.quantity_to_supply:
@@ -137,6 +138,15 @@ class ReplenPlanTrackingLine(models.Model):
                         line.state = 'waiting'
             else:
                 line.state = 'waiting'
+
+            # Enregistrer le changement d'état dans le chatter
+            if old_state != line.state:
+                line.tracking_id.message_post(
+                    body=f"Le composant <b>{line.product_id.name}</b> est passé de l'état <b>{dict(line._fields['state'].selection).get(old_state, 'Nouveau')}</b> à <b>{dict(line._fields['state'].selection).get(line.state)}</b>",
+                    message_type='notification',
+                    subtype_xmlid='mail.mt_note'
+                )
+            
             # Appeler check_completion sur le tracking parent
             if line.tracking_id:
                 line.tracking_id.check_completion()
@@ -276,6 +286,84 @@ class ReplenPlanTrackingLine(models.Model):
     def _compute_quantity_pending(self):
         for line in self:
             line.quantity_pending = line.quantity_to_supply - line.quantity_received
+
+    def write(self, vals):
+        # Pour chaque ligne, enregistrer les anciennes valeurs avant modification
+        tracked_fields = {
+            'quantity_to_supply': ('Quantité à réapprovisionner', 'Product Unit of Measure'),
+            'quantity_received': ('Quantité reçue', 'Product Unit of Measure'),
+            'quantity_pending': ('Quantité en attente', 'Product Unit of Measure'),
+            'total_price': ('Prix total', 'currency'),
+            'lead_time': ('Délai', 'jours'),
+            'expected_date': ('Date de réception prévue', 'date'),
+        }
+
+        for line in self:
+            changes = []
+            for field, (label, unit_type) in tracked_fields.items():
+                if field in vals and vals[field] != getattr(line, field):
+                    old_value = getattr(line, field)
+                    new_value = vals[field]
+                    
+                    # Formatage spécial selon le type de champ
+                    if unit_type == 'Product Unit of Measure':
+                        old_str = f"{old_value} {line.product_id.uom_id.name}"
+                        new_str = f"{new_value} {line.product_id.uom_id.name}"
+                    elif unit_type == 'currency':
+                        currency = self.env.company.currency_id
+                        old_str = f"{currency.symbol} {old_value}"
+                        new_str = f"{currency.symbol} {new_value}"
+                    elif unit_type == 'date':
+                        old_str = old_value.strftime('%d/%m/%Y') if old_value else 'Non défini'
+                        new_str = fields.Date.from_string(new_value).strftime('%d/%m/%Y') if new_value else 'Non défini'
+                    elif unit_type == 'jours':
+                        old_str = f"{old_value} jours"
+                        new_str = f"{new_value} jours"
+                    else:
+                        old_str = str(old_value)
+                        new_str = str(new_value)
+                    
+                    changes.append(f"- {label} : {old_str} → {new_str}")
+
+            # Suivre les modifications des demandes de prix
+            if 'purchase_order_line_ids' in vals:
+                old_po_lines = line.purchase_order_line_ids
+                res = super(ReplenPlanTrackingLine, self).write(vals)
+                new_po_lines = line.purchase_order_line_ids
+                
+                # Identifier les nouvelles lignes ajoutées
+                added_lines = new_po_lines - old_po_lines
+                for po_line in added_lines:
+                    line.tracking_id.message_post(
+                        body=f"""Nouvelle demande de prix pour le composant <b>{line.product_id.name}</b>:<br/>
+                              - Commande: {po_line.order_id.name}<br/>
+                              - Quantité: {po_line.product_qty} {po_line.product_uom.name}<br/>
+                              - Prix unitaire: {po_line.price_unit} {po_line.order_id.currency_id.symbol}""",
+                        message_type='notification',
+                        subtype_xmlid='mail.mt_note'
+                    )
+                
+                # Identifier les lignes supprimées
+                removed_lines = old_po_lines - new_po_lines
+                for po_line in removed_lines:
+                    line.tracking_id.message_post(
+                        body=f"Suppression de la demande de prix {po_line.order_id.name} pour le composant <b>{line.product_id.name}</b>",
+                        message_type='notification',
+                        subtype_xmlid='mail.mt_note'
+                    )
+            else:
+                res = super(ReplenPlanTrackingLine, self).write(vals)
+
+            # Si des changements ont été détectés, les enregistrer dans le chatter
+            if changes:
+                line.tracking_id.message_post(
+                    body=f"""Modification des valeurs pour le composant <b>{line.product_id.name}</b>:<br/>
+                          {'<br/>'.join(changes)}""",
+                    message_type='notification',
+                    subtype_xmlid='mail.mt_note'
+                )
+
+        return res
 
 class PurchaseOrder(models.Model):
     _inherit = 'purchase.order'
