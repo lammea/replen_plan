@@ -99,7 +99,7 @@ class ReplenPlanTrackingLine(models.Model):
     product_id = fields.Many2one('product.product', string='Composant', required=True)
     vendor_id = fields.Many2one('res.partner', string='Fournisseur')
     lead_time = fields.Integer(string='Délai (jours)')
-    expected_date = fields.Date(string='Date de réception prévue', compute='_compute_expected_date', store=True)
+    expected_date = fields.Date(string='Date de réception prévue', compute='_compute_expected_date', store=True, readonly=False)
     total_price = fields.Float(string='Prix total', digits='Product Price')
     quantity_to_supply = fields.Float(string='Quantité à réapprovisionner', digits='Product Unit of Measure')
     quantity_received = fields.Float(string='Quantité reçue', digits='Product Unit of Measure')
@@ -136,7 +136,7 @@ class ReplenPlanTrackingLine(models.Model):
             else:
                 line.state = 'waiting'
 
-    @api.depends('lead_time')
+    @api.depends('lead_time', 'tracking_id.validation_date')
     def _compute_expected_date(self):
         for line in self:
             if line.tracking_id.validation_date and line.lead_time:
@@ -245,6 +245,10 @@ class ReplenPlanTrackingLine(models.Model):
         # Calculer le nouveau prix total
         total_price = sum(line.price_unit * line.product_qty for line in self.purchase_order_line_ids)
         
+        # Si la date planifiée a été modifiée dans la demande de prix, on met à jour notre date
+        if purchase_order_line.date_planned:
+            self.expected_date = fields.Date.to_date(purchase_order_line.date_planned)
+        
         # Mettre à jour les valeurs
         self.write({
             'quantity_to_supply': quantity_to_supply,
@@ -328,8 +332,8 @@ class PurchaseOrderLine(models.Model):
         """Surcharge de la méthode write pour mettre à jour les lignes de suivi"""
         res = super(PurchaseOrderLine, self).write(vals)
         
-        # Si le prix ou la quantité ont été modifiés
-        if 'price_unit' in vals or 'product_qty' in vals:
+        # Si le prix, la quantité ou la date planifiée ont été modifiés
+        if any(field in vals for field in ['price_unit', 'product_qty', 'date_planned']):
             tracking_lines = self.env['replen.plan.tracking.line'].search([
                 ('purchase_order_line_ids', 'in', self.ids)
             ])
