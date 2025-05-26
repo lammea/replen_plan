@@ -106,30 +106,35 @@ class ReplenPlanTrackingLine(models.Model):
     purchase_order_line_ids = fields.Many2many('purchase.order.line', string='Lignes de commande')
     state = fields.Selection([
         ('waiting', 'En attente'),
+        ('confirmed', 'Confirmé'),
         ('partial', 'En cours'),
         ('done', 'Terminé'),
         ('late', 'En retard'),
         ('rejected', 'Rejeté')
     ], string='État', compute='_compute_state', store=True)
 
-    @api.depends('quantity_to_supply', 'quantity_received', 'expected_date', 'purchase_order_line_ids')
+    @api.depends('quantity_to_supply', 'quantity_received', 'expected_date', 'purchase_order_line_ids', 'purchase_order_line_ids.order_id.state')
     def _compute_state(self):
         today = fields.Date.today()
         for line in self:
             if not line.purchase_order_line_ids:
                 line.state = 'rejected'
-            elif line.quantity_received == 0:
-                if line.expected_date and line.expected_date < today:
-                    line.state = 'late'
+            # Vérifier si toutes les commandes liées sont confirmées
+            elif all(pol.order_id.state in ['purchase', 'done'] for pol in line.purchase_order_line_ids):
+                if line.quantity_received == 0:
+                    if line.expected_date and line.expected_date < today:
+                        line.state = 'late'
+                    else:
+                        line.state = 'confirmed'
+                elif line.quantity_received < line.quantity_to_supply:
+                    if line.expected_date and line.expected_date < today:
+                        line.state = 'late'
+                    else:
+                        line.state = 'partial'
                 else:
-                    line.state = 'waiting'
-            elif line.quantity_received < line.quantity_to_supply:
-                if line.expected_date and line.expected_date < today:
-                    line.state = 'late'
-                else:
-                    line.state = 'partial'
+                    line.state = 'done'
             else:
-                line.state = 'done'
+                line.state = 'waiting'
 
     @api.depends('lead_time')
     def _compute_expected_date(self):
@@ -268,6 +273,9 @@ class PurchaseOrder(models.Model):
                 ('purchase_order_line_ids', 'in', order.order_line.ids)
             ])
             for tracking_line in tracking_lines:
+                # Forcer le recalcul de l'état
+                tracking_line._compute_state()
+                # Mettre à jour les valeurs
                 tracking_line.update_from_purchase_order_line(order.order_line.filtered(
                     lambda l: l.id in tracking_line.purchase_order_line_ids.ids
                 )[0])
