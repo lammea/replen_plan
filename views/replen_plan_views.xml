@@ -100,7 +100,7 @@
                     <field name="sub_period"/>
                     <field name="date_start"/>
                     <field name="date_end"/>
-                    <field name="state"/>
+                    <field name="state" widget="badge" decoration-info="state=='draft'" decoration-warning="state=='forecast'" decoration-danger="state=='plan'" decoration-success="state=='done'"/>
                 </tree>
             </field>
         </record>
@@ -226,7 +226,7 @@
                                         <field name="forecast_consumption" readonly="1"/>
                                         <field name="current_stock" readonly="1"/>
                                         <field name="safety_stock" readonly="1"/>
-                                        <field name="stock_state" decoration-success="stock_state == 'available'" decoration-warning="stock_state == 'warning'" decoration-danger="stock_state == 'urgent'"/>
+                                        <field name="stock_state" widget="badge" decoration-success="stock_state=='available'" decoration-warning="stock_state=='warning'" decoration-danger="stock_state=='urgent'"/>
                                         <field name="quantity_to_supply" decoration-danger="quantity_to_supply > 0"/>
                                     </tree>
                                 </field>
@@ -285,7 +285,7 @@
                                         <field name="forecast_consumption" readonly="1"/>
                                         <field name="current_stock" readonly="1"/>
                                         <field name="safety_stock" readonly="1"/>
-                                        <field name="stock_state" decoration-success="stock_state == 'available'" decoration-warning="stock_state == 'warning'" decoration-danger="stock_state == 'urgent'"/>
+                                        <field name="stock_state" widget="badge" decoration-success="stock_state=='available'" decoration-warning="stock_state=='warning'" decoration-danger="stock_state=='urgent'"/>
                                         <field name="quantity_to_supply" decoration-danger="quantity_to_supply > 0"/>
                                         <button name="action_reset_quantity_to_supply" 
                                                 string="Réinitialiser" 
@@ -437,7 +437,7 @@
                                         <field name="forecast_consumption"/>
                                         <field name="current_stock"/>
                                         <field name="safety_stock"/>
-                                        <field name="stock_state" decoration-success="stock_state == 'available'" decoration-warning="stock_state == 'warning'" decoration-danger="stock_state == 'urgent'"/>
+                                        <field name="stock_state" widget="badge" decoration-success="stock_state=='available'" decoration-warning="stock_state=='warning'" decoration-danger="stock_state=='urgent'"/>
                                         <field name="quantity_to_supply" decoration-danger="quantity_to_supply > 0"/>
                                     </tree>
                                 </field>
