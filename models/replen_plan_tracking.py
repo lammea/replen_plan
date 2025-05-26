@@ -102,8 +102,9 @@ class ReplenPlanTrackingLine(models.Model):
     lead_time = fields.Integer(string='Délai (jours)')
     expected_date = fields.Date(string='Date de réception prévue', compute='_compute_expected_date', store=True, readonly=False)
     total_price = fields.Float(string='Prix total', digits='Product Price')
-   
+    
     quantity_received = fields.Float(string='Quantité reçue', digits='Product Unit of Measure')
+    quantity_pending = fields.Float(string='Quantité en attente', compute='_compute_quantity_pending', store=True, digits='Product Unit of Measure')
     purchase_order_line_ids = fields.Many2many('purchase.order.line', string='Lignes de commande')
     state = fields.Selection([
         ('waiting', 'En attente'),
@@ -265,6 +266,11 @@ class ReplenPlanTrackingLine(models.Model):
             'quantity_received': 0,
             'expected_date': False,
         })
+
+    @api.depends('quantity_to_supply', 'quantity_received')
+    def _compute_quantity_pending(self):
+        for line in self:
+            line.quantity_pending = line.quantity_to_supply - line.quantity_received
 
 class PurchaseOrder(models.Model):
     _inherit = 'purchase.order'
