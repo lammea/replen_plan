@@ -15,7 +15,7 @@ class ReplenPlanTracking(models.Model):
     validation_date = fields.Datetime(string='Date de validation', related='replen_plan_id.validation_date', store=True)
     state = fields.Selection([
         ('in_progress', 'En cours'),
-        ('done', 'Terminé')
+        ('done', 'Fin du réapprovisionnement')
     ], string='État', default='in_progress', tracking=True)
     component_line_ids = fields.One2many('replen.plan.tracking.line', 'tracking_id', string='Composants')
 
@@ -85,11 +85,14 @@ class ReplenPlanTracking(models.Model):
         
         return tracking
 
+    @api.depends('component_line_ids.state')
     def check_completion(self):
         self.ensure_one()
-        all_received = all(line.state == 'done' for line in self.component_line_ids)
-        if all_received:
+        all_completed = all(line.state in ['done', 'rejected'] for line in self.component_line_ids)
+        if all_completed:
             self.state = 'done'
+        else:
+            self.state = 'in_progress'
 
 class ReplenPlanTrackingLine(models.Model):
     _name = 'replen.plan.tracking.line'
@@ -134,6 +137,9 @@ class ReplenPlanTrackingLine(models.Model):
                         line.state = 'waiting'
             else:
                 line.state = 'waiting'
+            # Appeler check_completion sur le tracking parent
+            if line.tracking_id:
+                line.tracking_id.check_completion()
 
     @api.depends('lead_time', 'tracking_id.validation_date')
     def _compute_expected_date(self):
