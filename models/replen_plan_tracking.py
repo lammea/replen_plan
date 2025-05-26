@@ -108,7 +108,6 @@ class ReplenPlanTrackingLine(models.Model):
     purchase_order_line_ids = fields.Many2many('purchase.order.line', string='Lignes de commande')
     state = fields.Selection([
         ('waiting', 'En attente'),
-        ('confirmed', 'Confirmé'),
         ('partial', 'En cours'),
         ('done', 'Terminé'),
         ('late', 'En retard'),
@@ -132,7 +131,7 @@ class ReplenPlanTrackingLine(models.Model):
                     if line.expected_date and line.expected_date < today:
                         line.state = 'late'
                     else:
-                        line.state = 'confirmed'
+                        line.state = 'waiting'
             else:
                 line.state = 'waiting'
 
