@@ -97,11 +97,12 @@ class ReplenPlanTrackingLine(models.Model):
 
     tracking_id = fields.Many2one('replen.plan.tracking', string='Suivi', required=True, ondelete='cascade')
     product_id = fields.Many2one('product.product', string='Composant', required=True)
+    quantity_to_supply = fields.Float(string='Quantité à réapprovisionner', digits='Product Unit of Measure')
     vendor_id = fields.Many2one('res.partner', string='Fournisseur')
     lead_time = fields.Integer(string='Délai (jours)')
     expected_date = fields.Date(string='Date de réception prévue', compute='_compute_expected_date', store=True, readonly=False)
     total_price = fields.Float(string='Prix total', digits='Product Price')
-    quantity_to_supply = fields.Float(string='Quantité à réapprovisionner', digits='Product Unit of Measure')
+   
     quantity_received = fields.Float(string='Quantité reçue', digits='Product Unit of Measure')
     purchase_order_line_ids = fields.Many2many('purchase.order.line', string='Lignes de commande')
     state = fields.Selection([
@@ -121,18 +122,16 @@ class ReplenPlanTrackingLine(models.Model):
                 line.state = 'rejected'
             # Vérifier si toutes les commandes liées sont confirmées
             elif all(pol.order_id.state in ['purchase', 'done'] for pol in line.purchase_order_line_ids):
-                if line.quantity_received == 0:
+                if line.quantity_received > 0:
+                    if line.quantity_received < line.quantity_to_supply:
+                        line.state = 'partial'
+                    else:
+                        line.state = 'done'
+                else:
                     if line.expected_date and line.expected_date < today:
                         line.state = 'late'
                     else:
                         line.state = 'confirmed'
-                elif line.quantity_received < line.quantity_to_supply:
-                    if line.expected_date and line.expected_date < today:
-                        line.state = 'late'
-                    else:
-                        line.state = 'partial'
-                else:
-                    line.state = 'done'
             else:
                 line.state = 'waiting'
 
