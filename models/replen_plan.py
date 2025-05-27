@@ -132,6 +132,20 @@ class ReplenPlanComponentSupplierDisplay(models.Model):
     price = fields.Float('Prix unitaire', readonly=True)
     total_price = fields.Float('Prix total', readonly=True)
     delivery_lead_time = fields.Integer('Délai de livraison (jours)', readonly=True)
+    expected_delivery_date = fields.Date('Date de réception prévue', compute='_compute_expected_delivery_date', store=False)
+    is_late_delivery = fields.Boolean('Livraison hors période', compute='_compute_expected_delivery_date', store=False)
+
+    @api.depends('delivery_lead_time', 'plan_id.date_start', 'plan_id.date_end')
+    def _compute_expected_delivery_date(self):
+        today = fields.Date.today()
+        for record in self:
+            # Calculer la date de livraison prévue
+            record.expected_delivery_date = today + relativedelta(days=record.delivery_lead_time or 0)
+            
+            # Vérifier si la livraison est hors période
+            record.is_late_delivery = False
+            if record.expected_delivery_date and record.plan_id.date_end:
+                record.is_late_delivery = record.expected_delivery_date > record.plan_id.date_end
 
     def init(self):
         tools.drop_view_if_exists(self.env.cr, self._table)
@@ -312,6 +326,12 @@ class ReplenPlan(models.Model):
     product_count = fields.Integer(
         string='Nombre de produits',
         compute='_compute_product_count'
+    )
+
+    has_late_deliveries = fields.Boolean(
+        string='A des livraisons tardives',
+        compute='_compute_has_late_deliveries',
+        store=False
     )
 
     @api.depends('product_ids')
@@ -979,3 +999,12 @@ class ReplenPlan(models.Model):
                 plan.period = f"Année {plan.sub_period}"
             else:
                 plan.period = False
+
+    @api.depends('component_supplier_ids', 'component_supplier_ids.expected_delivery_date', 'date_end')
+    def _compute_has_late_deliveries(self):
+        for plan in self:
+            plan.has_late_deliveries = False
+            for supplier in plan.component_supplier_ids:
+                if supplier.is_late_delivery:
+                    plan.has_late_deliveries = True
+                    break
