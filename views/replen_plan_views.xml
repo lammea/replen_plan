@@ -336,7 +336,7 @@
                         </group>
                         <notebook>
                             <page string="Fournisseurs disponibles" name="suppliers">
-                                <field name="component_supplier_ids" readonly="1">
+                                <field name="component_supplier_ids" delete="true">
                                     <tree>
                                         <field name="product_id"/>
                                         <field name="supplier_id"/>

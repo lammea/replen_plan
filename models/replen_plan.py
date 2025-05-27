@@ -151,6 +151,25 @@ class ReplenPlanComponentSupplierDisplay(models.Model):
             )
         """ % (self._table,))
 
+    def unlink(self):
+        """Supprime les lignes fournisseur correspondantes"""
+        for record in self:
+            # Rechercher le composant correspondant
+            component = self.env['replen.plan.component'].search([
+                ('plan_id', '=', record.plan_id.id),
+                ('product_id', '=', record.product_id.id)
+            ], limit=1)
+            
+            if component:
+                # Supprimer la ligne fournisseur correspondante
+                supplier_lines = component.supplier_line_ids.filtered(
+                    lambda l: l.supplier_id.id == record.supplier_id.id
+                )
+                if supplier_lines:
+                    supplier_lines.unlink()
+        
+        return True
+
 class ReplenPlan(models.Model):
     _name = 'replen.plan'
     _description = 'Plan de réapprovisionnement'
