@@ -135,6 +135,14 @@ class ReplenPlanComponentSupplierDisplay(models.Model):
 
     def init(self):
         tools.drop_view_if_exists(self.env.cr, self._table)
+        
+        # First drop the trigger if it exists
+        self.env.cr.execute("""
+            DROP TRIGGER IF EXISTS replen_plan_component_supplier_display_update_trigger 
+            ON replen_plan_component_supplier_display;
+        """)
+        
+        # Create the view
         self.env.cr.execute("""
             CREATE OR REPLACE VIEW %s AS (
                 SELECT 
@@ -150,20 +158,68 @@ class ReplenPlanComponentSupplierDisplay(models.Model):
                 JOIN replen_plan_supplier_line sl ON sl.component_id = c.id
             )
         """ % (self._table,))
+        
+        # Create the INSTEAD OF UPDATE trigger function
+        self.env.cr.execute("""
+            CREATE OR REPLACE FUNCTION update_replen_plan_component_supplier_display()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                -- Update the supplier line
+                UPDATE replen_plan_supplier_line sl
+                SET price = NEW.price,
+                    total_price = NEW.total_price,
+                    delivery_lead_time = NEW.delivery_lead_time
+                FROM replen_plan_component c
+                WHERE c.id = sl.component_id
+                    AND c.plan_id = NEW.plan_id
+                    AND c.product_id = NEW.product_id
+                    AND sl.supplier_id = NEW.supplier_id;
+                
+                -- Update the component
+                UPDATE replen_plan_component
+                SET quantity_to_supply = NEW.quantity_to_supply
+                WHERE plan_id = NEW.plan_id
+                    AND product_id = NEW.product_id;
+                
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+        """)
+        
+        # Create the trigger (without OR REPLACE)
+        self.env.cr.execute("""
+            CREATE TRIGGER replen_plan_component_supplier_display_update_trigger
+            INSTEAD OF UPDATE ON replen_plan_component_supplier_display
+            FOR EACH ROW
+            EXECUTE FUNCTION update_replen_plan_component_supplier_display();
+        """)
 
     def unlink(self):
         """Supprime les lignes fournisseur correspondantes"""
+        if not self:
+            return True
+
+        # Stocker les informations nécessaires avant la suppression
+        to_unlink_data = []
         for record in self:
+            to_unlink_data.append({
+                'plan_id': record.plan_id.id,
+                'product_id': record.product_id.id,
+                'supplier_id': record.supplier_id.id
+            })
+
+        # Supprimer les lignes fournisseur pour chaque enregistrement
+        for data in to_unlink_data:
             # Rechercher le composant correspondant
             component = self.env['replen.plan.component'].search([
-                ('plan_id', '=', record.plan_id.id),
-                ('product_id', '=', record.product_id.id)
+                ('plan_id', '=', data['plan_id']),
+                ('product_id', '=', data['product_id'])
             ], limit=1)
             
             if component:
                 # Supprimer la ligne fournisseur correspondante
                 supplier_lines = component.supplier_line_ids.filtered(
-                    lambda l: l.supplier_id.id == record.supplier_id.id
+                    lambda l: l.supplier_id.id == data['supplier_id']
                 )
                 if supplier_lines:
                     supplier_lines.unlink()
