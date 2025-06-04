@@ -18,6 +18,19 @@ class ReplenPlanTracking(models.Model):
         ('done', 'Fin du réapprovisionnement')
     ], string='État', default='in_progress', tracking=True)
     component_line_ids = fields.One2many('replen.plan.tracking.line', 'tracking_id', string='Composants')
+    component_count = fields.Integer(string='Nombre de composants', compute='_compute_component_count', store=True)
+    total_amount = fields.Monetary(string='Montant total', compute='_compute_total_amount', store=True, currency_field='currency_id')
+    currency_id = fields.Many2one('res.currency', string='Devise', default=lambda self: self.env.company.currency_id.id)
+
+    @api.depends('component_line_ids')
+    def _compute_component_count(self):
+        for record in self:
+            record.component_count = len(record.component_line_ids)
+
+    @api.depends('component_line_ids.total_price')
+    def _compute_total_amount(self):
+        for record in self:
+            record.total_amount = sum(record.component_line_ids.mapped('total_price'))
 
     def action_view_details(self):
         return {
