@@ -4,6 +4,7 @@ access_replen_plan_line,replen.plan.line,model_replen_plan_line,base.group_user,
 access_replen_plan_component,replen.plan.component,model_replen_plan_component,base.group_user,1,1,1,1
 access_replen_plan_supplier_line,replen.plan.supplier.line,model_replen_plan_supplier_line,base.group_user,1,1,1,1
 access_replen_plan_component_supplier_display,replen.plan.component.supplier.display,model_replen_plan_component_supplier_display,base.group_user,1,0,0,0
+access_replen_plan_component_supplier_display_manager,replen.plan.component.supplier.display.manager,model_replen_plan_component_supplier_display,stock.group_stock_manager,1,1,1,1
 access_replen_plan_user,replen.plan.user,model_replen_plan,stock.group_stock_user,1,1,1,1
 access_replen_plan_manager,replen.plan.manager,model_replen_plan,stock.group_stock_manager,1,1,1,1
 access_replen_plan_line_user,replen.plan.line.user,model_replen_plan_line,stock.group_stock_user,1,1,1,1
@@ -12,3 +13,5 @@ access_replen_plan_component_user,replen.plan.component.user,model_replen_plan_c
 access_replen_plan_component_manager,replen.plan.component.manager,model_replen_plan_component,stock.group_stock_manager,1,1,1,1
 access_replen_plan_tracking_user,replen.plan.tracking.user,model_replen_plan_tracking,stock.group_stock_user,1,1,1,1
 access_replen_plan_tracking_line_user,replen.plan.tracking.line.user,model_replen_plan_tracking_line,stock.group_stock_user,1,1,1,1
+access_replen_plan_confirm_wizard_user,replen.plan.confirm.wizard.user,model_replen_plan_confirm_wizard,stock.group_stock_user,1,1,1,0
+access_replen_plan_confirm_wizard_manager,replen.plan.confirm.wizard.manager,model_replen_plan_confirm_wizard,stock.group_stock_manager,1,1,1,1
