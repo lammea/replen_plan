@@ -143,6 +143,7 @@ class ReplenPlanTrackingLine(models.Model):
 
     tracking_id = fields.Many2one('replen.plan.tracking', string='Suivi', required=True, ondelete='cascade')
     product_id = fields.Many2one('product.product', string='Composant', required=True)
+    display_name = fields.Char(string='Nom affiché', compute='_compute_display_name', store=True)
     quantity_to_supply = fields.Float(string='Quantité à réapprovisionner', digits='Product Unit of Measure', tracking=True)
     vendor_id = fields.Many2one('res.partner', string='Fournisseur', tracking=True)
     lead_time = fields.Integer(string='Délai (jours)', tracking=True)
@@ -406,6 +407,14 @@ class ReplenPlanTrackingLine(models.Model):
                 )
 
         return res
+
+    @api.depends('tracking_id.name', 'product_id.name')
+    def _compute_display_name(self):
+        for record in self:
+            if record.tracking_id and record.product_id:
+                record.display_name = f"{record.tracking_id.name} - {record.product_id.name}"
+            else:
+                record.display_name = "Nouveau"
 
 class PurchaseOrder(models.Model):
     _inherit = 'purchase.order'

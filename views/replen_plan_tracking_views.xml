@@ -171,6 +171,36 @@
         </field>
     </record>
 
+    <!-- Calendar View -->
+    <record id="view_replen_plan_tracking_calendar" model="ir.ui.view">
+        <field name="name">replen.plan.tracking.line.calendar</field>
+        <field name="model">replen.plan.tracking.line</field>
+        <field name="arch" type="xml">
+            <calendar string="Dates de réception prévues" date_start="expected_date" color="state" mode="month">
+                <field name="display_name"/>
+            </calendar>
+        </field>
+    </record>
+
+    <!-- Action for Calendar View -->
+    <record id="action_replen_plan_tracking_line_calendar" model="ir.actions.act_window">
+        <field name="name">Calendrier des réceptions</field>
+        <field name="res_model">replen.plan.tracking.line</field>
+        <field name="view_mode">calendar</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Aucune réception prévue pour le moment
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu Item for Calendar -->
+    <menuitem id="menu_replen_plan_tracking_calendar"
+              name="Calendrier des réceptions"
+              parent="menu_replen_root"
+              action="action_replen_plan_tracking_line_calendar"
+              sequence="25"/>
+
     <!-- Action -->
     <record id="action_replen_plan_tracking" model="ir.actions.act_window">
         <field name="name">Suivi des plans</field>
