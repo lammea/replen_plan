@@ -249,6 +249,10 @@ class ReplenPlan(models.Model):
     name = fields.Char('Référence', required=True, copy=False, readonly=True, 
                       default=lambda self: _('Nouveau'))
     
+    currency_id = fields.Many2one('res.currency', string='Devise',
+                                 default=lambda self: self.env.company.currency_id.id,
+                                 required=True, readonly=True)
+    
     state = fields.Selection([
         ('draft', 'Paramétrage initial'),
         ('forecast', 'Planification prévisionnelle'),

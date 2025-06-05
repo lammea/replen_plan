@@ -16,8 +16,9 @@
     'data': [
         'security/ir.model.access.csv',
         'data/ir_sequence_data.xml',
-        'views/replen_plan_views.xml',
+        'reports/replen_plan_report.xml',
         'views/menu_views.xml',
+        'views/replen_plan_views.xml',
         'views/replen_plan_confirm_views.xml',
         'views/replen_plan_tracking_views.xml',
     ],

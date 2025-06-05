@@ -46,7 +46,7 @@
                     <notebook>
                         <page string="Composants" name="components">
                             <field name="component_line_ids" readonly="1">
-                                <tree>
+                                <tree decoration-info="state=='waiting'" decoration-warning="state=='partial'" decoration-success="state=='done'" decoration-danger="state in ['late', 'rejected']">
                                     <field name="product_id"/>
                                     <field name="vendor_id"/>
                                     <field name="quantity_to_supply"/>
