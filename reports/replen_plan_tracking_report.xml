@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Définition du rapport -->
+        <record id="action_report_replen_plan_tracking" model="ir.actions.report">
+            <field name="name">Récapitulatif des réceptions</field>
+            <field name="model">replen.plan.tracking</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">replen_plan.report_replen_plan_tracking_template</field>
+            <field name="report_file">replen_plan.report_replen_plan_tracking_template</field>
+            <field name="print_report_name">'Récapitulatif des réceptions - %s' % object.name</field>
+            <field name="binding_model_id" ref="model_replen_plan_tracking"/>
+            <field name="binding_type">report</field>
+        </record>
+
+        <!-- Template du rapport -->
+        <template id="report_replen_plan_tracking_template">
+            <t t-call="web.html_container">
+                <t t-foreach="docs" t-as="doc">
+                    <t t-call="web.external_layout">
+                        <div class="page">
+                            <div class="row">
+                                <div class="col-12 text-center">
+                                    <h2>Récapitulatif des réceptions</h2>
+                                    <h3><span t-field="doc.name"/></h3>
+                                </div>
+                            </div>
+
+                            <div class="row mt-4">
+                                <div class="col-6">
+                                    <strong>Plan de réapprovisionnement:</strong> 
+                                    <span t-field="doc.replen_plan_id.name"/>
+                                </div>
+                                <div class="col-6 text-right">
+                                    <strong>État:</strong> 
+                                    <span t-field="doc.state"/>
+                                </div>
+                            </div>
+
+                            <div class="row mt-4">
+                                <div class="col-12">
+                                    <h4>Détails des composants reçus</h4>
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Composant</th>
+                                                <th>Fournisseur</th>
+                                                <th class="text-right">Quantité prévue</th>
+                                                <th class="text-right">Quantité reçue</th>
+                                                <th class="text-right">Date de réception</th>
+                                                <th class="text-right">État</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr t-foreach="doc.component_line_ids.filtered(lambda l: l.state == 'done')" t-as="line">
+                                                <td>
+                                                    <span t-field="line.product_id"/>
+                                                </td>
+                                                <td>
+                                                    <span t-field="line.vendor_id"/>
+                                                </td>
+                                                <td class="text-right">
+                                                    <span t-field="line.quantity_to_supply"/>
+                                                </td>
+                                                <td class="text-right">
+                                                    <span t-field="line.quantity_received"/>
+                                                </td>
+                                                <td class="text-right">
+                                                    <span t-field="line.expected_date"/>
+                                                </td>
+                                                <td class="text-right">
+                                                    <span t-field="line.state"/>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="row mt-4">
+                                <div class="col-12">
+                                    <h4>Statistiques</h4>
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <th>Nombre total de composants:</th>
+                                            <td class="text-right">
+                                                <span t-field="doc.component_count"/>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Composants reçus:</th>
+                                            <td class="text-right">
+                                                <span t-esc="len(doc.component_line_ids.filtered(lambda l: l.state == 'done'))"/>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                </t>
+            </t>
+        </template>
+    </data>
+</odoo> 
