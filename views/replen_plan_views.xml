@@ -430,7 +430,8 @@
                                 <field name="line_ids" readonly="1">
                                     <tree>
                                         <field name="product_id"/>
-                                        <field name="date" readonly="1" widget="date" options="{'format': 'MMMM YYYY'}"/>
+                                        <field name="date" invisible="1"/>
+                                        <field name="date_display"/>
                                         <field name="historic_qty"/>
                                         <field name="forecast_qty"/>
                                     </tree>
