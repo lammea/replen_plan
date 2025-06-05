@@ -97,7 +97,7 @@
                       js_class="replen_plan_list">
                     <field name="name"/>
                     <field name="period_type"/>
-                    <field name="sub_period"/>
+                    <field name="period"/>
                     <field name="date_start"/>
                     <field name="date_end"/>
                     <field name="state" widget="badge" decoration-info="state=='draft'" decoration-warning="state=='forecast'" decoration-danger="state=='plan'" decoration-success="state=='done'"/>

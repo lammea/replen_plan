@@ -18,9 +18,9 @@ class ReplenPlanLine(models.Model):
     @api.depends('date')
     def _compute_date_display(self):
         months_fr = {
-            1: 'Janvier', 2: 'Février', 3: 'Mars', 4: 'Avril',
-            5: 'Mai', 6: 'Juin', 7: 'Juillet', 8: 'Août',
-            9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre'
+            1: 'janvier', 2: 'février', 3: 'mars', 4: 'avril',
+            5: 'mai', 6: 'juin', 7: 'juillet', 8: 'août',
+            9: 'septembre', 10: 'octobre', 11: 'novembre', 12: 'décembre'
         }
         for line in self:
             if line.date:
@@ -282,19 +282,19 @@ class ReplenPlan(models.Model):
     show_products = fields.Boolean(compute='_compute_show_products')
 
     sub_period_monthly = fields.Selection([
-        ('01', 'Janvier'), ('02', 'Février'), ('03', 'Mars'),
-        ('04', 'Avril'), ('05', 'Mai'), ('06', 'Juin'),
-        ('07', 'Juillet'), ('08', 'Août'), ('09', 'Septembre'),
-        ('10', 'Octobre'), ('11', 'Novembre'), ('12', 'Décembre')
+        ('01', 'janvier'), ('02', 'février'), ('03', 'mars'),
+        ('04', 'avril'), ('05', 'mai'), ('06', 'juin'),
+        ('07', 'juillet'), ('08', 'août'), ('09', 'septembre'),
+        ('10', 'octobre'), ('11', 'novembre'), ('12', 'décembre')
     ], string='Mois')
 
     sub_period_quarterly = fields.Selection([
-        ('Q1', '1er Trimestre'), ('Q2', '2ème Trimestre'),
-        ('Q3', '3ème Trimestre'), ('Q4', '4ème Trimestre')
+        ('Q1', '1er trimestre'), ('Q2', '2ème trimestre'),
+        ('Q3', '3ème trimestre'), ('Q4', '4ème trimestre')
     ], string='Trimestre')
 
     sub_period_biannual = fields.Selection([
-        ('S1', '1er Semestre'), ('S2', '2ème Semestre')
+        ('S1', '1er semestre'), ('S2', '2ème semestre')
     ], string='Semestre')
 
     @api.model
@@ -417,10 +417,10 @@ class ReplenPlan(models.Model):
         if shifted_to_next_year:
             period_names = {
                 'monthly': {
-                    '01': 'Janvier', '02': 'Février', '03': 'Mars',
-                    '04': 'Avril', '05': 'Mai', '06': 'Juin',
-                    '07': 'Juillet', '08': 'Août', '09': 'Septembre',
-                    '10': 'Octobre', '11': 'Novembre', '12': 'Décembre'
+                    '01': 'janvier', '02': 'février', '03': 'mars',
+                    '04': 'avril', '05': 'mai', '06': 'juin',
+                    '07': 'juillet', '08': 'août', '09': 'septembre',
+                    '10': 'octobre', '11': 'novembre', '12': 'décembre'
                 },
                 'quarterly': {
                     'Q1': 'le 1er trimestre',
@@ -953,10 +953,10 @@ class ReplenPlan(models.Model):
                 'sub_period_biannual', 'sub_period_annual')
     def _compute_period(self):
         months_fr = {
-            '01': 'Janvier', '02': 'Février', '03': 'Mars',
-            '04': 'Avril', '05': 'Mai', '06': 'Juin',
-            '07': 'Juillet', '08': 'Août', '09': 'Septembre',
-            '10': 'Octobre', '11': 'Novembre', '12': 'Décembre'
+            '01': 'janvier', '02': 'février', '03': 'mars',
+            '04': 'avril', '05': 'mai', '06': 'juin',
+            '07': 'juillet', '08': 'août', '09': 'septembre',
+            '10': 'octobre', '11': 'novembre', '12': 'décembre'
         }
         for plan in self:
             if not plan.period_type or not plan.sub_period:
@@ -973,10 +973,10 @@ class ReplenPlan(models.Model):
                     plan.period = False
             elif plan.period_type == 'quarterly':
                 quarters = {
-                    'Q1': '1er Trimestre',
-                    'Q2': '2ème Trimestre',
-                    'Q3': '3ème Trimestre',
-                    'Q4': '4ème Trimestre'
+                    'Q1': '1er trimestre',
+                    'Q2': '2ème trimestre',
+                    'Q3': '3ème trimestre',
+                    'Q4': '4ème trimestre'
                 }
                 if plan.sub_period in quarters:
                     year = fields.Date.today().year
@@ -988,8 +988,8 @@ class ReplenPlan(models.Model):
                     plan.period = False
             elif plan.period_type == 'biannual':
                 semesters = {
-                    'S1': '1er Semestre',
-                    'S2': '2ème Semestre'
+                    'S1': '1er semestre',
+                    'S2': '2ème semestre'
                 }
                 if plan.sub_period in semesters:
                     year = fields.Date.today().year
