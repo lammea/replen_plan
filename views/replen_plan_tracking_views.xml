@@ -10,6 +10,8 @@
                 <field name="period"/>
                 <field name="validation_date"/>
                 <field name="component_count"/>
+                <field name="total_amount" widget="monetary"/>
+                <field name="progress_percentage" widget="percentage"/>
                 <field name="state" widget="badge" decoration-info="state=='in_progress'" decoration-success="state=='done'"/>
             </tree>
         </field>
@@ -35,6 +37,7 @@
                             <field name="replen_plan_id" readonly="1"/>
                             <field name="period" readonly="1"/>
                             <field name="component_count" readonly="1"/>
+                            <field name="progress_percentage" widget="percentage" readonly="1"/>
                         </group>
                         <group>
                             <field name="validation_date" readonly="1"/>
@@ -172,7 +175,7 @@
     <record id="action_replen_plan_tracking" model="ir.actions.act_window">
         <field name="name">Suivi des plans</field>
         <field name="res_model">replen.plan.tracking</field>
-        <field name="view_mode">kanban,tree,graph,form</field>
+        <field name="view_mode">tree,kanban,graph,form</field>
         <field name="context">{}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">

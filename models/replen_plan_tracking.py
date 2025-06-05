@@ -21,6 +21,7 @@ class ReplenPlanTracking(models.Model):
     component_count = fields.Integer(string='Nombre de composants', compute='_compute_component_count', store=True)
     total_amount = fields.Monetary(string='Montant total', compute='_compute_total_amount', store=True, currency_field='currency_id')
     currency_id = fields.Many2one('res.currency', string='Devise', default=lambda self: self.env.company.currency_id.id)
+    progress_percentage = fields.Float(string='Avancement (%)', compute='_compute_progress_percentage', store=True)
 
     @api.depends('component_line_ids')
     def _compute_component_count(self):
@@ -31,6 +32,34 @@ class ReplenPlanTracking(models.Model):
     def _compute_total_amount(self):
         for record in self:
             record.total_amount = sum(record.component_line_ids.mapped('total_price'))
+
+    @api.depends('component_line_ids', 'component_line_ids.state', 'component_line_ids.quantity_received', 'component_line_ids.quantity_to_supply')
+    def _compute_progress_percentage(self):
+        for record in self:
+            if not record.component_line_ids:
+                record.progress_percentage = 0
+                continue
+
+            total_received = 0
+            total_to_supply = 0
+
+            for line in record.component_line_ids:
+                if line.state == 'rejected':
+                    continue
+                
+                if line.state == 'done':
+                    total_received += line.quantity_to_supply
+                    total_to_supply += line.quantity_to_supply
+                elif line.state == 'partial':
+                    total_received += line.quantity_received
+                    total_to_supply += line.quantity_to_supply
+                elif line.state in ['waiting', 'late']:
+                    total_to_supply += line.quantity_to_supply
+
+            if total_to_supply > 0:
+                record.progress_percentage = min((total_received / total_to_supply) / 100, 1) * 100
+            else:
+                record.progress_percentage = 0
 
     def action_view_details(self):
         return {
