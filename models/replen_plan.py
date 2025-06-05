@@ -763,7 +763,19 @@ class ReplenPlan(models.Model):
         
         # Force le recalcul des fournisseurs disponibles
         for component in self.component_ids:
+            # Recalcul des quantités
             component._compute_quantity_to_supply()
+            
+            # Réinitialisation des lignes fournisseurs
+            existing_suppliers = component.supplier_line_ids.mapped('supplier_id')
+            for seller in component.product_id.seller_ids:
+                if seller.name not in existing_suppliers:
+                    self.env['replen.plan.supplier.line'].create({
+                        'component_id': component.id,
+                        'supplier_id': seller.name.id,
+                        'price': seller.price,
+                        'delivery_lead_time': seller.delay,
+                    })
             
         self.write({'state': 'report'})
         return self._return_form_action('report')
