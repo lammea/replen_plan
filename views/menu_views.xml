@@ -67,7 +67,7 @@
 
         <!-- Sous-menu pour les plans -->
         <menuitem id="menu_replen_plan"
-                  name="Plans"
+                  name="Planification"
                   parent="menu_replen_root"
                   action="action_replen_plan"
                   sequence="10"/>

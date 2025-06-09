@@ -205,14 +205,14 @@
 
     <!-- Menu Item for Calendar -->
     <menuitem id="menu_replen_plan_tracking_calendar"
-              name="Calendrier des réceptions"
+              name="Réceptions prévues"
               parent="menu_replen_root"
               action="action_replen_plan_tracking_line_calendar"
               sequence="25"/>
 
     <!-- Action -->
     <record id="action_replen_plan_tracking" model="ir.actions.act_window">
-        <field name="name">Suivi des plans</field>
+        <field name="name">Suivi en temps réel</field>
         <field name="res_model">replen.plan.tracking</field>
         <field name="view_mode">tree,kanban,graph,form</field>
         <field name="context">{}</field>
@@ -225,7 +225,7 @@
 
     <!-- Menu Item -->
     <menuitem id="menu_replen_plan_tracking"
-              name="Suivi"
+              name="Suivi en temps réel"
               parent="menu_replen_root"
               action="action_replen_plan_tracking"
               sequence="20"/>
