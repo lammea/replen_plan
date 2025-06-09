@@ -1024,3 +1024,44 @@ class ReplenPlan(models.Model):
                 if supplier.is_late_delivery:
                     plan.has_late_deliveries = True
                     break
+
+    def unlink(self):
+        """Surcharge de la méthode unlink pour gérer la suppression d'un plan validé"""
+        for plan in self:
+            if plan.state == 'done':
+                # Récupérer les demandes de prix liées au plan
+                purchase_orders = self.env['purchase.order'].search([
+                    ('origin', '=', f'Réappro {plan.name}')
+                ])
+                
+                # Annuler les demandes de prix
+                for po in purchase_orders:
+                    if po.state not in ['cancel', 'done']:
+                        po.button_cancel()
+                
+                # Récupérer le suivi associé
+                tracking = self.env['replen.plan.tracking'].search([
+                    ('replen_plan_id', '=', plan.id)
+                ], limit=1)
+                
+                if tracking:
+                    tracking.unlink()
+                
+                # Notifier l'utilisateur via le système de messagerie
+                message = _(
+                    "Le plan de réapprovisionnement %(name)s a été supprimé.<br/>"
+                    "- %(po_count)d demande(s) de prix ont été annulée(s)<br/>"
+                    "- Le suivi associé a été supprimé"
+                ) % {
+                    'name': plan.name,
+                    'po_count': len(purchase_orders)
+                }
+                
+                # Créer une note dans le chatter
+                plan.message_post(
+                    body=message,
+                    message_type='notification',
+                    subtype_xmlid='mail.mt_note'
+                )
+        
+        return super(ReplenPlan, self).unlink()

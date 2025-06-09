@@ -40,24 +40,17 @@ class ReplenPlanTracking(models.Model):
                 record.progress_percentage = 0
                 continue
 
-            total_received = 0
-            total_to_supply = 0
-
-            for line in record.component_line_ids:
-                if line.state == 'rejected':
-                    continue
-                
-                if line.state == 'done':
-                    total_received += line.quantity_to_supply
-                    total_to_supply += line.quantity_to_supply
-                elif line.state == 'partial':
-                    total_received += line.quantity_received
-                    total_to_supply += line.quantity_to_supply
-                elif line.state in ['waiting', 'late']:
-                    total_to_supply += line.quantity_to_supply
-
-            if total_to_supply > 0:
-                record.progress_percentage = min((total_received / total_to_supply) / 100, 1) * 100
+            total_lines = len(record.component_line_ids)
+            done_lines = len(record.component_line_ids.filtered(lambda l: l.state == 'done'))
+            
+            _logger.info(f"Calcul du pourcentage pour {record.name}:")
+            _logger.info(f"Lignes terminées: {done_lines}")
+            _logger.info(f"Total des lignes: {total_lines}")
+            
+            if total_lines > 0:
+                percentage = (done_lines / total_lines) * 100
+                _logger.info(f"Pourcentage calculé: {percentage}%")
+                record.progress_percentage = percentage
             else:
                 record.progress_percentage = 0
 
