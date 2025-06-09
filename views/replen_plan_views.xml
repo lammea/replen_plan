@@ -214,8 +214,8 @@
                                         <field name="product_id" readonly="1"/>
                                         <field name="date" string="Mois" readonly="1" invisible="1"/>
                                         <field name="date_display" string="Mois" readonly="1"/>
-                                        <field name="historic_qty" readonly="1"/>
-                                        <field name="forecast_qty" attrs="{'readonly': [('parent.state', '!=', 'forecast')]}"/>
+                                        <field name="historic_qty" readonly="1" decoration-info="1"/>
+                                        <field name="forecast_qty" attrs="{'readonly': [('parent.state', '!=', 'forecast')]}" decoration-bf="1"/>
                                     </tree>
                                 </field>
                             </page>

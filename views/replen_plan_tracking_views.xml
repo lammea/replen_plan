@@ -176,8 +176,17 @@
         <field name="name">replen.plan.tracking.line.calendar</field>
         <field name="model">replen.plan.tracking.line</field>
         <field name="arch" type="xml">
-            <calendar string="Dates de réception prévues" date_start="expected_date" color="state" mode="month">
+            <calendar string="Dates de réception prévues" 
+                     date_start="expected_date" 
+                     color="state" 
+                     mode="month"
+                     form_view_id="false">
                 <field name="display_name"/>
+                <field name="product_id"/>
+                <field name="vendor_id"/>
+                <field name="quantity_to_supply"/>
+                <field name="quantity_received"/>
+                <field name="state"/>
             </calendar>
         </field>
     </record>
