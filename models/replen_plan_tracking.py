@@ -40,17 +40,35 @@ class ReplenPlanTracking(models.Model):
                 record.progress_percentage = 0
                 continue
 
-            total_lines = len(record.component_line_ids)
-            done_lines = len(record.component_line_ids.filtered(lambda l: l.state == 'done'))
+            # Filtrer pour exclure les lignes rejetées
+            valid_lines = record.component_line_ids.filtered(lambda l: l.state != 'rejected')
             
-            _logger.info(f"Calcul du pourcentage pour {record.name}:")
-            _logger.info(f"Lignes terminées: {done_lines}")
-            _logger.info(f"Total des lignes: {total_lines}")
-            
-            if total_lines > 0:
-                percentage = (done_lines / total_lines) * 100
-                _logger.info(f"Pourcentage calculé: {percentage}%")
-                record.progress_percentage = percentage
+            if not valid_lines:
+                record.progress_percentage = 0
+                continue
+
+            # Calculer le pourcentage pour chaque ligne valide
+            line_percentages = []
+            for line in valid_lines:
+                if line.state == 'done':
+                    # Si la ligne est marquée comme terminée, on compte 100%
+                    line_percentage = 100.0
+                elif line.quantity_to_supply > 0:
+                    # Sinon on calcule le pourcentage basé sur les quantités
+                    line_percentage = (line.quantity_received / line.quantity_to_supply) * 100
+                else:
+                    line_percentage = 0
+                
+                line_percentages.append(line_percentage)
+                _logger.info(f"Ligne {line.product_id.name}: État={line.state}, {line_percentage}% ({line.quantity_received}/{line.quantity_to_supply})")
+
+            # Calculer la moyenne des pourcentages
+            if line_percentages:
+                average_percentage = sum(line_percentages) / len(line_percentages)
+                _logger.info(f"Calcul du pourcentage pour {record.name}:")
+                _logger.info(f"Nombre de lignes valides: {len(valid_lines)}")
+                _logger.info(f"Moyenne des pourcentages: {average_percentage}%")
+                record.progress_percentage = average_percentage
             else:
                 record.progress_percentage = 0
 
