@@ -60,11 +60,6 @@
             <field name="context">{'form_view_initial_mode': 'readonly', 'state_view': 'done'}</field>
         </record>
 
-        <!-- Menu principal -->
-        <menuitem id="menu_replen_root"
-                  name="Réapprovisionnement"
-                  sequence="50"/>
-
         <!-- Sous-menu pour les plans -->
         <menuitem id="menu_replen_plan"
                   name="Planification"

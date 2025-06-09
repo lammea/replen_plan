@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Menu principal -->
+        <menuitem id="menu_replen_root"
+                  name="Réapprovisionnement"
+                  sequence="50"/>
+    </data>
+</odoo> 
