@@ -52,7 +52,7 @@
                                     <field name="quantity_to_supply"/>
                                     <field name="quantity_received"/>
                                     <field name="quantity_pending"/>
-                                    <field name="total_price" sum="Total"/>
+                                    <field name="total_price"/>
                                     <field name="expected_date"/>
                                     <field name="state" widget="badge" 
                                            decoration-info="state=='waiting'"

@@ -432,8 +432,8 @@
                                         <field name="product_id"/>
                                         <field name="date" invisible="1"/>
                                         <field name="date_display"/>
-                                        <field name="historic_qty"/>
-                                        <field name="forecast_qty"/>
+                                        <field name="historic_qty" decoration-info="1"/>
+                                        <field name="forecast_qty" decoration-bf="1"/>
                                     </tree>
                                 </field>
                             </page>
