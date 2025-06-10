@@ -12,6 +12,7 @@
     """,
     'author': 'Votre Société',
     'website': 'https://www.votresociete.com',
+    'sequence': 1,
     'depends': ['base', 'stock', 'purchase', 'mrp', 'sale', 'mail'],
     'data': [
         'security/ir.model.access.csv',
@@ -24,6 +25,7 @@
         'views/replen_plan_tracking_views.xml',
         'views/menu_views.xml',
     ],
+    'images': ['static/description/icon.png'],
     'installable': True,
     'application': True,
     'auto_install': False,
