@@ -4,6 +4,8 @@
         <!-- Menu principal -->
         <menuitem id="menu_replen_root"
                   name="Réapprovisionnement"
-                  sequence="50"/>
+                  sequence="50"
+        web_icon="replen_plan,static/description/icon.png"
+        />
     </data>
 </odoo> 
