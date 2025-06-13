@@ -52,6 +52,8 @@ class ReplenPlanComponent(models.Model):
 
     plan_id = fields.Many2one('replen.plan', string='Plan', required=True, ondelete='cascade')
     product_id = fields.Many2one('product.product', string='Composant', required=True)
+    date = fields.Date('Mois', required=True)
+    date_display = fields.Char('Période', compute='_compute_date_display', store=True)
     forecast_consumption = fields.Float('Consommation prévisionnelle', digits='Product Unit of Measure')
     current_stock = fields.Float('Stock actuel', digits='Product Unit of Measure')
     safety_stock = fields.Float('Stock de sécurité', digits='Product Unit of Measure')
@@ -77,6 +79,21 @@ class ReplenPlanComponent(models.Model):
         help="Quantité calculée automatiquement selon la formule standard"
     )
     supplier_line_ids = fields.One2many('replen.plan.supplier.line', 'component_id', string='Lignes fournisseurs')
+
+    @api.depends('date')
+    def _compute_date_display(self):
+        months_fr = {
+            1: 'janvier', 2: 'février', 3: 'mars', 4: 'avril',
+            5: 'mai', 6: 'juin', 7: 'juillet', 8: 'août',
+            9: 'septembre', 10: 'octobre', 11: 'novembre', 12: 'décembre'
+        }
+        for line in self:
+            if line.date:
+                month = months_fr[line.date.month]
+                year = line.date.year
+                line.date_display = f"{month} {year}"
+            else:
+                line.date_display = ""
 
     @api.depends('current_stock', 'forecast_consumption', 'safety_stock')
     def _compute_stock_state(self):
@@ -139,74 +156,29 @@ class ReplenPlanComponentSupplierDisplay(models.Model):
     def _compute_expected_delivery_date(self):
         today = fields.Date.today()
         for record in self:
-            # Calculer la date de livraison prévue
             record.expected_delivery_date = today + relativedelta(days=record.delivery_lead_time or 0)
-            
-            # Vérifier si la livraison est hors période
             record.is_late_delivery = False
             if record.expected_delivery_date and record.plan_id.date_end:
                 record.is_late_delivery = record.expected_delivery_date > record.plan_id.date_end
 
     def init(self):
         tools.drop_view_if_exists(self.env.cr, self._table)
-        
-        # First drop the trigger if it exists
-        self.env.cr.execute("""
-            DROP TRIGGER IF EXISTS replen_plan_component_supplier_display_update_trigger 
-            ON replen_plan_component_supplier_display;
-        """)
-        
-        # Create the view
-        self.env.cr.execute("""
-            CREATE OR REPLACE VIEW %s AS (
-                SELECT 
-                    ROW_NUMBER() OVER () AS id,
-                    c.plan_id,
-                    c.product_id,
-                    sl.supplier_id,
-                    c.quantity_to_supply,
-                    sl.price,
-                    sl.total_price,
-                    sl.delivery_lead_time
-                FROM replen_plan_component c
-                JOIN replen_plan_supplier_line sl ON sl.component_id = c.id
+        self.env.cr.execute('''
+            CREATE OR REPLACE VIEW replen_plan_component_supplier_display AS (
+                SELECT
+                    MIN(sup.id) as id,
+                    comp.plan_id as plan_id,
+                    comp.product_id as product_id,
+                    sup.supplier_id as supplier_id,
+                    SUM(comp.quantity_to_supply) as quantity_to_supply,
+                    sup.price as price,
+                    SUM(sup.price * comp.quantity_to_supply) as total_price,
+                    sup.delivery_lead_time as delivery_lead_time
+                FROM replen_plan_component comp
+                JOIN replen_plan_supplier_line sup ON sup.component_id = comp.id
+                GROUP BY comp.plan_id, comp.product_id, sup.supplier_id, sup.price, sup.delivery_lead_time
             )
-        """ % (self._table,))
-        
-        # Create the INSTEAD OF UPDATE trigger function
-        self.env.cr.execute("""
-            CREATE OR REPLACE FUNCTION update_replen_plan_component_supplier_display()
-            RETURNS TRIGGER AS $$
-            BEGIN
-                -- Update the supplier line
-                UPDATE replen_plan_supplier_line sl
-                SET price = NEW.price,
-                    total_price = NEW.total_price,
-                    delivery_lead_time = NEW.delivery_lead_time
-                FROM replen_plan_component c
-                WHERE c.id = sl.component_id
-                    AND c.plan_id = NEW.plan_id
-                    AND c.product_id = NEW.product_id
-                    AND sl.supplier_id = NEW.supplier_id;
-                
-                -- Update the component
-                UPDATE replen_plan_component
-                SET quantity_to_supply = NEW.quantity_to_supply
-                WHERE plan_id = NEW.plan_id
-                    AND product_id = NEW.product_id;
-                
-                RETURN NEW;
-            END;
-            $$ LANGUAGE plpgsql;
-        """)
-        
-        # Create the trigger (without OR REPLACE)
-        self.env.cr.execute("""
-            CREATE TRIGGER replen_plan_component_supplier_display_update_trigger
-            INSTEAD OF UPDATE ON replen_plan_component_supplier_display
-            FOR EACH ROW
-            EXECUTE FUNCTION update_replen_plan_component_supplier_display();
-        """)
+        ''')
 
     def unlink(self):
         """Supprime les lignes fournisseur correspondantes"""
@@ -652,7 +624,7 @@ class ReplenPlan(models.Model):
         else:
             return self._generate_plan()
 
-    def _get_bom_components(self, product, qty, level=0, component_needs=None):
+    def _get_bom_components(self, product, qty, level=0, component_needs=None, month_date=None):
         """Récupère récursivement tous les composants d'un produit, y compris les sous-assemblages"""
         if component_needs is None:
             component_needs = {}
@@ -679,12 +651,10 @@ class ReplenPlan(models.Model):
             
             if sub_bom and sub_bom.bom_line_ids:
                 # Récursion pour obtenir les composants du sous-assemblage
-                self._get_bom_components(component, qty_needed, level + 1, component_needs)
+                self._get_bom_components(component, qty_needed, level + 1, component_needs, month_date)
             else:
                 # C'est un composant final
-                if component.id in component_needs:
-                    component_needs[component.id]['qty'] += qty_needed
-                else:
+                if component.id not in component_needs:
                     # Récupérer le stock actuel
                     current_stock = component.qty_available
 
@@ -697,10 +667,15 @@ class ReplenPlan(models.Model):
 
                     component_needs[component.id] = {
                         'product': component,
-                        'qty': qty_needed,
                         'current_stock': current_stock,
-                        'safety_stock': safety_stock
+                        'safety_stock': safety_stock,
+                        'monthly_data': {}
                     }
+
+                # Ajouter les besoins pour ce mois
+                if month_date not in component_needs[component.id]['monthly_data']:
+                    component_needs[component.id]['monthly_data'][month_date] = {'qty': 0}
+                component_needs[component.id]['monthly_data'][month_date]['qty'] += qty_needed
 
         return component_needs
 
@@ -710,31 +685,35 @@ class ReplenPlan(models.Model):
         # Supprimer les anciennes lignes de composants
         self.component_ids.unlink()
 
-        # Dictionnaire pour accumuler les besoins par composant
+        # Dictionnaire pour accumuler les besoins par composant et par mois
         component_needs = {}
 
         # Pour chaque produit fini et ses prévisions
         for line in self.line_ids:
             product = line.product_id
             forecast_qty = line.forecast_qty
+            month_date = line.date
 
             # Récupérer tous les composants de manière récursive
             component_needs = self._get_bom_components(
                 product, 
                 forecast_qty, 
-                component_needs=component_needs
+                component_needs=component_needs,
+                month_date=month_date
             )
 
         # Créer les lignes de composants
         component_lines = []
         for comp_id, data in component_needs.items():
-            component_lines.append({
-                'plan_id': self.id,
-                'product_id': comp_id,
-                'forecast_consumption': data['qty'],
-                'current_stock': data['current_stock'],
-                'safety_stock': data['safety_stock'],
-            })
+            for month_date, month_data in data['monthly_data'].items():
+                component_lines.append({
+                    'plan_id': self.id,
+                    'product_id': comp_id,
+                    'date': month_date,
+                    'forecast_consumption': month_data['qty'],
+                    'current_stock': data['current_stock'],
+                    'safety_stock': data['safety_stock'],
+                })
 
         if component_lines:
             self.env['replen.plan.component'].create(component_lines)

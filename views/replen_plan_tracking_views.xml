@@ -180,7 +180,7 @@
                      date_start="expected_date" 
                      color="state" 
                      mode="month"
-                     form_view_id="false">
+                     create="0">
                 <field name="display_name"/>
                 <field name="product_id"/>
                 <field name="vendor_id"/>
@@ -188,6 +188,27 @@
                 <field name="quantity_received"/>
                 <field name="state"/>
             </calendar>
+        </field>
+    </record>
+
+    <!-- Form View for Calendar -->
+    <record id="view_replen_plan_tracking_line_form_calendar" model="ir.ui.view">
+        <field name="name">replen.plan.tracking.line.form.calendar</field>
+        <field name="model">replen.plan.tracking.line</field>
+        <field name="arch" type="xml">
+            <form string="Réception prévue" create="false" edit="false" delete="false">
+                <sheet>
+                    <group>
+                        <field name="display_name" readonly="1"/>
+                        <field name="product_id" readonly="1"/>
+                        <field name="vendor_id" readonly="1"/>
+                        <field name="quantity_to_supply" readonly="1"/>
+                        <field name="quantity_received" readonly="1"/>
+                        <field name="state" readonly="1"/>
+                        <field name="expected_date" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
         </field>
     </record>
 
