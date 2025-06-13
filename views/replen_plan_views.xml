@@ -346,13 +346,13 @@
                                 </div>
                                 <field name="component_supplier_ids" delete="true">
                                     <tree decoration-danger="is_late_delivery">
-                                        <field name="product_id"/>
-                                        <field name="supplier_id"/>
-                                        <field name="quantity_to_supply"/>
-                                        <field name="price"/>
-                                        <field name="total_price"/>
-                                        <field name="delivery_lead_time"/>
-                                        <field name="expected_delivery_date"/>
+                                        <field name="product_id" decoration-danger="is_late_delivery"/>
+                                        <field name="supplier_id" decoration-info="not is_late_delivery" decoration-danger="is_late_delivery"/>
+                                        <field name="quantity_to_supply" decoration-bf="not is_late_delivery" decoration-danger="is_late_delivery"/>
+                                        <field name="price" decoration-info="not is_late_delivery" decoration-bf="not is_late_delivery" decoration-danger="is_late_delivery"/>
+                                        <field name="total_price" decoration-info="not is_late_delivery" decoration-bf="not is_late_delivery" decoration-danger="is_late_delivery"/>
+                                        <field name="delivery_lead_time" decoration-danger="is_late_delivery"/>
+                                        <field name="expected_delivery_date" decoration-danger="is_late_delivery"/>
                                         <field name="is_late_delivery" invisible="1"/>
                                     </tree>
                                 </field>
@@ -460,14 +460,15 @@
                             </page>
                             <page string="Fournisseurs disponibles" name="suppliers">
                                 <field name="component_supplier_ids" readonly="1">
-                                    <tree>
-                                        <field name="product_id"/>
-                                        <field name="supplier_id"/>
-                                        <field name="quantity_to_supply"/>
-                                        <field name="price"/>
-                                        <field name="total_price"/>
-                                        <field name="delivery_lead_time"/>
-                                        <field name="expected_delivery_date"/>
+                                    <tree decoration-danger="is_late_delivery">
+                                        <field name="product_id" decoration-danger="is_late_delivery"/>
+                                        <field name="supplier_id" decoration-info="not is_late_delivery" decoration-danger="is_late_delivery"/>
+                                        <field name="quantity_to_supply" decoration-bf="not is_late_delivery" decoration-danger="is_late_delivery"/>
+                                        <field name="price" decoration-info="not is_late_delivery" decoration-bf="not is_late_delivery" decoration-danger="is_late_delivery"/>
+                                        <field name="total_price" decoration-info="not is_late_delivery" decoration-bf="not is_late_delivery" decoration-danger="is_late_delivery"/>
+                                        <field name="delivery_lead_time" decoration-danger="is_late_delivery"/>
+                                        <field name="expected_delivery_date" decoration-danger="is_late_delivery"/>
+                                        <field name="is_late_delivery" invisible="1"/>
                                     </tree>
                                 </field>
                             </page>

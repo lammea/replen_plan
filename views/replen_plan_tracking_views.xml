@@ -30,7 +30,7 @@
                     <div class="oe_button_box" name="button_box">
                         <button name="action_view_delivery_graph" type="object" class="oe_stat_button" icon="fa-bar-chart">
                             <div class="o_field_widget o_stat_info">
-                                <span class="o_stat_text">Analyse<br/>Délais</span>
+                                <span class="o_stat_text">Analyse<br/>Graphique</span>
                             </div>
                         </button>
                     </div>
