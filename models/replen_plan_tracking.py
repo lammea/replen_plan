@@ -175,7 +175,9 @@ class ReplenPlanTrackingLine(models.Model):
     vendor_id = fields.Many2one('res.partner', string='Fournisseur', tracking=True)
     lead_time = fields.Integer(string='Délai (jours)', tracking=True)
     expected_date = fields.Date(string='Date de réception prévue', compute='_compute_expected_date', store=True, readonly=False, tracking=True)
+    price = fields.Float(string='Prix unitaire', digits='Product Price', tracking=True)
     total_price = fields.Float(string='Prix total', digits='Product Price', tracking=True)
+    currency_id = fields.Many2one(related='tracking_id.currency_id', string='Devise', store=True)
     days_difference = fields.Integer(string='Différence (jours)', compute='_compute_days_difference', store=True)
     
     quantity_received = fields.Float(string='Quantité reçue', digits='Product Unit of Measure', tracking=True)
@@ -189,7 +191,7 @@ class ReplenPlanTrackingLine(models.Model):
         ('rejected', 'Rejeté')
     ], string='État', compute='_compute_state', store=True, tracking=True)
 
-    @api.depends('quantity_to_supply', 'quantity_received', 'expected_date', 'purchase_order_line_ids', 'purchase_order_line_ids.order_id.state')
+    @api.depends('quantity_to_supply', 'quantity_received', 'expected_date', 'purchase_order_line_ids', 'purchase_order_line_ids.order_id.state', 'tracking_id.replen_plan_id.date_end')
     def _compute_state(self):
         today = fields.Date.today()
         for line in self:
@@ -203,7 +205,11 @@ class ReplenPlanTrackingLine(models.Model):
                     else:
                         line.state = 'done'
                 else:
-                    if line.expected_date and line.expected_date < today:
+                    # Vérifier si la date de réception prévue est après la date de fin du plan
+                    plan_end_date = line.tracking_id.replen_plan_id.date_end
+                    if line.expected_date and plan_end_date and line.expected_date > plan_end_date:
+                        line.state = 'late'
+                    elif line.expected_date and line.expected_date < today:
                         line.state = 'late'
                     else:
                         line.state = 'waiting'
