@@ -147,6 +147,22 @@ class ReplenPlanTracking(models.Model):
         else:
             self.state = 'in_progress'
 
+    def action_view_delivery_graph(self):
+        self.ensure_one()
+        return {
+            'name': 'Analyse des délais de livraison',
+            'type': 'ir.actions.act_window',
+            'res_model': 'replen.plan.tracking.line',
+            'view_mode': 'graph',
+            'domain': [('tracking_id', '=', self.id)],
+            'context': {
+                'graph_groupbys': ['product_id', 'vendor_id'],
+                'graph_measure': 'days_difference',
+                'graph_mode': 'bar',
+            },
+            'target': 'current',
+        }
+
 class ReplenPlanTrackingLine(models.Model):
     _name = 'replen.plan.tracking.line'
     _description = 'Ligne de suivi des composants'
@@ -160,6 +176,7 @@ class ReplenPlanTrackingLine(models.Model):
     lead_time = fields.Integer(string='Délai (jours)', tracking=True)
     expected_date = fields.Date(string='Date de réception prévue', compute='_compute_expected_date', store=True, readonly=False, tracking=True)
     total_price = fields.Float(string='Prix total', digits='Product Price', tracking=True)
+    days_difference = fields.Integer(string='Différence (jours)', compute='_compute_days_difference', store=True)
     
     quantity_received = fields.Float(string='Quantité reçue', digits='Product Unit of Measure', tracking=True)
     quantity_pending = fields.Float(string='Quantité en attente', compute='_compute_quantity_pending', store=True, digits='Product Unit of Measure')
@@ -212,6 +229,14 @@ class ReplenPlanTrackingLine(models.Model):
                 line.expected_date = fields.Date.to_date(line.tracking_id.validation_date) + timedelta(days=line.lead_time)
             else:
                 line.expected_date = False
+
+    @api.depends('expected_date', 'tracking_id.replen_plan_id.date_end')
+    def _compute_days_difference(self):
+        for line in self:
+            if line.expected_date and line.tracking_id.replen_plan_id.date_end:
+                line.days_difference = (line.expected_date - line.tracking_id.replen_plan_id.date_end).days
+            else:
+                line.days_difference = 0
 
     @api.model
     def create_from_replen_plan(self, replen_plan, components_with_rfq, purchase_orders):

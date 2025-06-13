@@ -372,7 +372,7 @@
             <field name="name">replen.plan.validated.form</field>
             <field name="model">replen.plan</field>
             <field name="arch" type="xml">
-                <form string="Récapitulatif du plan de réapprovisionnement" create="false">
+                <form string="Récapitulatif du plan de réapprovisionnement" create="false" edit="false">
                     <header>
                         <field name="state" widget="statusbar" statusbar_visible="draft,forecast,plan,report,done"/>
                     </header>
