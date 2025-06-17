@@ -65,7 +65,7 @@
                                     <field name="quantity_pending"/>
                                     <field name="total_price"/>
                                     <field name="expected_date"/>
-                                    <field name="state" widget="badge" 
+                                    <field name="state" widget="badge_selection" 
                                            decoration-info="state=='waiting'"
                                            decoration-warning="state=='partial'"
                                            decoration-success="state=='done'"

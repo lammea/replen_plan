@@ -198,6 +198,8 @@ class ReplenPlanTrackingLine(models.Model):
             old_state = line.state
             if not line.purchase_order_line_ids:
                 line.state = 'rejected'
+            elif all(pol.order_id.state == 'cancel' for pol in line.purchase_order_line_ids):
+                line.state = 'rejected'
             elif all(pol.order_id.state in ['purchase', 'done'] for pol in line.purchase_order_line_ids):
                 if line.quantity_received > 0:
                     if line.quantity_received < line.quantity_to_supply:
