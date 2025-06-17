@@ -205,10 +205,18 @@ class ReplenPlanTrackingLine(models.Model):
         today = fields.Date.today()
         for line in self:
             old_state = line.state
+            
+            # Si pas de lignes de commande, mettre l'état à rejeté et remettre les valeurs à 0
             if not line.purchase_order_line_ids:
-                line.state = 'rejected'
-            elif all(pol.order_id.state == 'cancel' for pol in line.purchase_order_line_ids):
-                line.state = 'rejected'
+                line.write({
+                    'state': 'rejected',
+                    'quantity_to_supply': 0.0,
+                    'quantity_received': 0.0,
+                    'quantity_pending': 0.0,
+                    'total_price': 0.0,
+                    'expected_date': False,
+                    'lead_time': 0,
+                })
             elif all(pol.order_id.state in ['purchase', 'done'] for pol in line.purchase_order_line_ids):
                 if line.quantity_received > 0:
                     if line.quantity_received < line.quantity_to_supply:
@@ -369,14 +377,15 @@ class ReplenPlanTrackingLine(models.Model):
     def reset_tracking_line(self):
         """Réinitialise les valeurs de la ligne de suivi après suppression de la ligne de commande"""
         self.ensure_one()
-        self.write({
-            'vendor_id': False,
-            'lead_time': 0,
-            'total_price': 0,
-            'quantity_to_supply': 0,
-            'quantity_received': 0,
-            'expected_date': False,
-        })
+        if self.state != 'rejected':
+            self.write({
+                'vendor_id': False,
+                'lead_time': 0,
+                'total_price': 0,
+                'quantity_to_supply': 0,
+                'quantity_received': 0,
+                'expected_date': False,
+            })
 
     @api.depends('quantity_to_supply', 'quantity_received')
     def _compute_quantity_pending(self):
@@ -516,11 +525,11 @@ class PurchaseOrderLine(models.Model):
         # Mettre à jour les lignes de suivi
         for tracking_line in tracking_lines:
             remaining_lines = tracking_line.purchase_order_line_ids.filtered(lambda l: l.id not in self.ids)
-            if not remaining_lines:
-                # Si plus aucune ligne de commande, réinitialiser la ligne de suivi
+            if not remaining_lines and tracking_line.state != 'rejected':
+                # Si plus aucune ligne de commande et pas rejeté, réinitialiser la ligne de suivi
                 tracking_line.reset_tracking_line()
-            else:
-                # Recalculer avec les lignes restantes
+            elif remaining_lines and tracking_line.state != 'rejected':
+                # Recalculer avec les lignes restantes si pas rejeté
                 quantity_to_supply = sum(line.product_qty for line in remaining_lines)
                 total_price = sum(line.price_unit * line.product_qty for line in remaining_lines)
                 tracking_line.write({
@@ -540,6 +549,7 @@ class PurchaseOrderLine(models.Model):
                 ('purchase_order_line_ids', 'in', self.ids)
             ])
             for tracking_line in tracking_lines:
-                tracking_line.update_from_purchase_order_line(self)
+                if tracking_line.state != 'rejected':
+                    tracking_line.update_from_purchase_order_line(self)
         
         return res 
