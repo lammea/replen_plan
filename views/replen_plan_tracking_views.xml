@@ -5,14 +5,14 @@
         <field name="name">replen.plan.tracking.tree</field>
         <field name="model">replen.plan.tracking</field>
         <field name="arch" type="xml">
-            <tree string="Suivi des plans" decoration-info="state=='in_progress'" decoration-success="state=='done'" create="false" edit="false" delete="false">
+            <tree string="Suivi des plans" decoration-info="state=='in_progress'" decoration-danger="state=='late'" decoration-success="state=='done'" create="false" edit="false" delete="false">
                 <field name="name"/>
                 <field name="period"/>
                 <field name="validation_date"/>
                 <field name="component_count"/>
                 <field name="total_amount" widget="monetary"/>
                 <field name="progress_percentage" widget="progressbar"/>
-                <field name="state" widget="badge" decoration-info="state=='in_progress'" decoration-success="state=='done'"/>
+                <field name="state" widget="badge" decoration-info="state=='in_progress'" decoration-danger="state=='late'" decoration-success="state=='done'"/>
             </tree>
         </field>
     </record>
@@ -65,7 +65,7 @@
                                     <field name="quantity_pending"/>
                                     <field name="total_price"/>
                                     <field name="expected_date"/>
-                                    <field name="state" widget="badge_selection" 
+                                    <field name="state" widget="badge" 
                                            decoration-info="state=='waiting'"
                                            decoration-warning="state=='partial'"
                                            decoration-success="state=='done'"
@@ -96,6 +96,7 @@
                 <field name="period"/>
                 <separator/>
                 <filter string="En cours" name="in_progress" domain="[('state','=','in_progress')]"/>
+                <filter string="En retard" name="late" domain="[('state','=','late')]"/>
                 <filter string="Terminés" name="done" domain="[('state','=','done')]"/>
                 <group expand="0" string="Group By">
                     <filter string="État" name="group_by_state" context="{'group_by':'state'}"/>

@@ -14,7 +14,8 @@ class ReplenPlanTracking(models.Model):
     period = fields.Char(string='Période concernée', related='replen_plan_id.period', store=True)
     validation_date = fields.Datetime(string='Date de validation', related='replen_plan_id.validation_date', store=True)
     state = fields.Selection([
-        ('in_progress', 'En cours'),
+        ('in_progress', 'En cours de réapprovisionnement '),
+        ('late', 'Réapprovisionnement en retard'),
         ('done', 'Fin du réapprovisionnement')
     ], string='État', default='in_progress', tracking=True)
     component_line_ids = fields.One2many('replen.plan.tracking.line', 'tracking_id', string='Composants')
@@ -138,12 +139,20 @@ class ReplenPlanTracking(models.Model):
         
         return tracking
 
-    @api.depends('component_line_ids.state')
+    @api.depends('component_line_ids', 'component_line_ids.state', 'replen_plan_id.date_end')
     def check_completion(self):
         self.ensure_one()
+        today = fields.Date.today()
+        plan_end_date = self.replen_plan_id.date_end
+
+        # Vérifier si toutes les lignes sont terminées ou rejetées
         all_completed = all(line.state in ['done', 'rejected'] for line in self.component_line_ids)
+        
         if all_completed:
             self.state = 'done'
+        elif plan_end_date and today > plan_end_date:
+            # Si la date de fin est dépassée et que tout n'est pas terminé
+            self.state = 'late'
         else:
             self.state = 'in_progress'
 
