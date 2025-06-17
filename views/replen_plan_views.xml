@@ -180,6 +180,11 @@
                                 type="object" 
                                 class="btn-secondary"
                                 states="forecast"/>
+                        <button name="action_copy_historic"
+                                string="Copier l'historique"
+                                type="object"
+                                class="btn-primary"
+                                states="forecast"/>
                         <button name="action_generate_plan" 
                                 string="Générer le plan" 
                                 type="object" 

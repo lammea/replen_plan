@@ -3,6 +3,9 @@ from odoo.exceptions import ValidationError, UserError
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 import base64
+import logging
+
+_logger = logging.getLogger(__name__)
 
 class ReplenPlanLine(models.Model):
     _name = 'replen.plan.line'
@@ -529,6 +532,9 @@ class ReplenPlan(models.Model):
         start_date = date.replace(year=date.year - 1)
         end_date = (start_date + relativedelta(months=1, days=-1))
         
+        _logger.info(f"Calcul historique pour le produit {product_id}:")
+        _logger.info(f"Période: du {start_date} au {end_date}")
+        
         # Rechercher les mouvements de stock sortants (livraisons)
         domain = [
             ('product_id', '=', product_id),
@@ -538,8 +544,16 @@ class ReplenPlan(models.Model):
             ('location_dest_id.usage', '=', 'customer'),  # Livraisons aux clients
         ]
         
+        _logger.info(f"Domaine de recherche: {domain}")
+        
         moves = self.env['stock.move'].search(domain)
+        _logger.info(f"Mouvements trouvés: {len(moves)}")
+        
+        for move in moves:
+            _logger.info(f"Mouvement: {move.name} - Quantité: {move.product_uom_qty} - Date: {move.date}")
+        
         total_qty = sum(moves.mapped('product_uom_qty'))
+        _logger.info(f"Quantité totale: {total_qty}")
         
         return total_qty
 
@@ -571,21 +585,32 @@ class ReplenPlan(models.Model):
 
     def action_to_forecast(self):
         self.ensure_one()
+        _logger.info(f"Transition vers l'état forecast pour le plan {self.name}")
+        
         if not self.product_ids:
             raise ValidationError(_("Veuillez conserver au moins un produit dans la liste."))
+            
+        _logger.info(f"Produits sélectionnés: {self.product_ids.mapped('name')}")
             
         # Vérification des champs obligatoires
         if not self.period_type or not self.sub_period:
             raise ValidationError(_("Veuillez sélectionner une période et une sous-période."))
 
+        _logger.info(f"Période: {self.period_type} - Sous-période: {self.sub_period}")
+
         # Création des lignes de prévision
         months = self._get_months_in_period()
+        _logger.info(f"Mois dans la période: {months}")
+        
         lines_to_create = []
         
         for product in self.product_ids:
+            _logger.info(f"\nTraitement du produit: {product.name}")
             for month_date in months:
+                _logger.info(f"Calcul pour le mois: {month_date}")
                 # Calculer l'historique des ventes pour ce produit et ce mois
                 historic_qty = self._get_historic_sales(product.id, month_date)
+                _logger.info(f"Quantité historique calculée: {historic_qty}")
                 
                 lines_to_create.append({
                     'plan_id': self.id,
@@ -595,9 +620,11 @@ class ReplenPlan(models.Model):
                     'forecast_qty': 0.0,
                 })
         
+        _logger.info(f"Suppression des anciennes lignes")
         # Suppression des anciennes lignes si elles existent
         self.line_ids.unlink()
         
+        _logger.info(f"Création de {len(lines_to_create)} nouvelles lignes")
         # Création des nouvelles lignes
         self.env['replen.plan.line'].create(lines_to_create)
             
@@ -1044,3 +1071,14 @@ class ReplenPlan(models.Model):
                 )
         
         return super(ReplenPlan, self).unlink()
+
+    def action_copy_historic(self):
+        """Copie les valeurs historiques dans les prévisions"""
+        self.ensure_one()
+        if self.state != 'forecast':
+            raise UserError(_("La copie de l'historique n'est possible qu'en phase de prévision."))
+            
+        for line in self.line_ids:
+            line.write({'forecast_qty': line.historic_qty})
+            
+        return True
