@@ -159,7 +159,7 @@ class ReplenPlanTracking(models.Model):
     def action_view_delivery_graph(self):
         self.ensure_one()
         return {
-            'name': 'Analyse des délais de livraison',
+            'name': 'Analyse Graphique',
             'type': 'ir.actions.act_window',
             'res_model': 'replen.plan.tracking.line',
             'view_mode': 'graph',
